@@ -23,19 +23,13 @@
     "require": {
         "php": "~8.4.0",
         "ext-ffi": "*",
-        "lisachenko/z-engine": "dev-claude/php-userland-generics-iebmsv"
+        "lisachenko/z-engine": "dev-master"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.75",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.2"
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/lisachenko/z-engine"
-        }
-    ],
     "autoload": {
         "psr-4": {
             "Lisachenko\\Generics\\": "src/"
