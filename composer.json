@@ -28,7 +28,8 @@
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.75",
         "phpstan/phpstan": "^2.1",
-        "phpunit/phpunit": "^12.2"
+        "phpunit/phpunit": "^12.2",
+        "phpstan/extension-installer": "^1.4"
     },
     "autoload": {
         "psr-4": {
@@ -39,7 +40,10 @@
         "psr-4": {
             "Lisachenko\\Generics\\": "tests/",
             "Lisachenko\\Generics\\Benchmark\\": "benchmarks/"
-        }
+        },
+        "classmap": [
+            "tests/PHPStan/data/"
+        ]
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
@@ -50,7 +54,10 @@
         "bench:smoke": "php benchmarks/run.php --smoke",
         "phpstan": "phpstan analyse",
         "cs:check": "php-cs-fixer fix --dry-run --diff",
-        "cs:fix": "php-cs-fixer fix"
+        "cs:fix": "php-cs-fixer fix",
+        "test:analysis": "phpunit --testsuite analysis",
+        "stubs:generate": "php bin/generics-stubs --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox'",
+        "stubs:check": "php bin/generics-stubs --check --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox'"
     },
     "scripts-descriptions": {
         "test": "Run the test suite (destructive internal group excluded)",
@@ -59,9 +66,25 @@
         "bench:smoke": "Run every benchmark scenario at a tiny size so it cannot bit-rot",
         "phpstan": "Run static analysis at the maximum level",
         "cs:check": "Check coding standards without fixing",
-        "cs:fix": "Fix coding standards"
+        "cs:fix": "Fix coding standards",
+        "test:analysis": "Run the PHPStan extension tests, which need no engine",
+        "stubs:generate": "Regenerate the committed PHPStan stubs for the placeholder-form fixtures",
+        "stubs:check": "Fail if the committed PHPStan stubs no longer match the generator"
     },
     "config": {
-        "sort-packages": true
-    }
+        "sort-packages": true,
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "phpstan": {
+            "includes": [
+                "extension.neon"
+            ]
+        }
+    },
+    "bin": [
+        "bin/generics-stubs"
+    ]
 }

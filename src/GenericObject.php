@@ -19,6 +19,6 @@ namespace Lisachenko\Generics;
  * A specialization is a *sibling* of its template, not a subclass: `$box instanceof Box` is
  * false for `Box<int>`. Interfaces, on the other hand, are preserved and shared onto every
  * copy, so this marker is the one relation that survives monomorphization and is therefore
- * required rather than optional - see docs/instanceof-and-identity.md.
+ * required rather than optional - see "Identity: sibling, not subclass" in the README.
  */
 interface GenericObject {}

@@ -30,7 +30,7 @@ from a hand-written class, on a class that did not exist a microsecond ago.**
 - [Type arguments](#type-arguments)
 - [What the engine actually enforces](#what-the-engine-actually-enforces)
 - [Identity: sibling, not subclass](#identity-sibling-not-subclass)
-- [Static analysis](#static-analysis)
+- [Static analysis](#static-analysis) and the [extension guide](docs/static-analysis.md)
 - [Long-running processes](#long-running-processes)
 - [Known limitations](#known-limitations)
 - [What it costs](#what-it-costs) and the full [benchmark report](docs/benchmarks.md)
@@ -261,6 +261,10 @@ than extending it — and it is not fixable. What follows from it:
 - **Type-hint an interface or an abstract base, never the template class.** Both are preserved
   onto every specialization.
 - `GenericObject` is required precisely so that at least one relation always survives.
+- **Ask the question a different way**: `Generic::isSpecialization($box)`,
+  `Generic::isSpecialization($box, Box::class)`, `Generic::templateOf($box)` and
+  `Generic::bindingOf($box)` all read the runtime name, so they also work for instances minted
+  by another factory. The shipped PHPStan rule points at them.
 - `catch (Box $e)` has the same problem, for the same reason.
 - `self::class` and `__CLASS__` inside a method body still name the *template*, because the
   compiler folded them into the shared opcodes. `static::class` is correct and resolves to the
@@ -279,26 +283,40 @@ function consume(BoxInterface $box): void {}   // works for every Box<X>
 ## Static analysis
 
 The `@template` doc tags are what PHPStan and your IDE read, and they keep working normally.
+The shipped extension adds the two things they cannot do on their own — see
+[`docs/static-analysis.md`](docs/static-analysis.md) for the full account.
 
-The **placeholder form** needs one extra step. A native `T` is exactly what the engine wants,
-but PHPStan resolves it to an object type and lets it beat any `@param T`, so every call site on
-a specialization becomes `expects Fixture\T, int given`. A PHPStan **stub file** replaces the
-declaration for analysis with the `mixed`-typed shape the class actually behaves like:
+**It infers the specialization.** With `phpstan/extension-installer` there is nothing to
+configure:
+
+```php
+$box = new (Box::of('int'))();          // inferred as Box<int>
+Box::of('int');                          // class-string<Box<int>>
+Box::of($runtime);                       // class-string<Box> - not narrowed, and not wrong
+```
+
+**It reports what `instanceof` cannot.** `$box instanceof Box` is always `false`, nothing about
+the call site looks wrong, and without a rule the only way to find out is to ship it. Six more
+rules cover `catch`, drift between `#[TemplateParameter]` and `@template`, unsupported type
+arguments, misapplied `#[Of]`, `self::class`, and property hooks.
+
+**It generates the stubs the placeholder form needs.** A native `T` beats any `@param T`, so
+PHPStan needs a stub that describes the class as it behaves. You do not write those:
+
+```bash
+vendor/bin/generics-stubs --out=var/generics-stubs 'App\Box'
+```
 
 ```neon
 parameters:
     stubFiles:
-        - phpstan/box-stub.php
+        - var/generics-stubs/box-stub.php
+    scanFiles:
+        - var/generics-stubs/placeholders.php
 ```
 
-Two things worth knowing about stub files, both learned the hard way:
-
-- PHPStan indexes **only the first class declaration** in a stub file and ignores the rest, so
-  write one class per file.
-- Stub files are reflected before the analysed paths are indexed, so a stub cannot name your own
-  interfaces or traits — declare the members it needs directly.
-
-The **attribute form** needs no stubs for its properties, since they are natively `mixed`.
+`--check` exits non-zero when a stub is out of date, for CI. The attribute form needs no stubs
+for its properties, which is the concrete measure of its advantage.
 
 ## What it costs
 

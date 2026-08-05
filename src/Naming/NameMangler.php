@@ -34,4 +34,14 @@ interface NameMangler
      * Used to reject `Box<int>::of('string')`: a specialization is not itself a template.
      */
     public function isMangled(string $className): bool;
+
+    /**
+     * Runs the mangler backwards, or returns null if the name is not one of its own
+     *
+     * Part of the interface rather than a convenience on one implementation: a name that
+     * cannot be taken apart again cannot answer `templateOf()` or `bindingOf()`, so a mangler
+     * that is not round-trippable is not usable. Implementations must satisfy
+     * `parse(mangle($t, $a)) == MangledName::of($t, $a)`.
+     */
+    public function parse(string $className): ?MangledName;
 }

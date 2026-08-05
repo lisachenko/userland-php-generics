@@ -1,0 +1,67 @@
+#
+# Userland PHP Generics — PHPStan extension
+#
+# Auto-loaded by phpstan/extension-installer via composer.json's extra.phpstan.includes.
+# Without the installer, include this file from your phpstan.neon manually.
+#
+services:
+    # Shared by all three return-type extensions: literal type arguments in, the
+    # specialization's type out, null whenever anything cannot be resolved at analysis time.
+    -
+        class: Lisachenko\Generics\PHPStan\SpecializedTypeFactory
+
+    # Box::of('int') -> class-string<Box<int>>, which is what lets `new (Box::of('int'))()`
+    # infer Box<int> with no annotation at the call site.
+    -
+        class: Lisachenko\Generics\PHPStan\TemplateOfReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicStaticMethodReturnTypeExtension
+
+    -
+        class: Lisachenko\Generics\PHPStan\GenericSpecializeReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicStaticMethodReturnTypeExtension
+
+    -
+        class: Lisachenko\Generics\PHPStan\GenericNewReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicStaticMethodReturnTypeExtension
+
+    # A specialization is a sibling of its template, so these two never match. They are the
+    # reason the extension exists: nothing about either call site looks wrong.
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\InstanceofGenericTemplateRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\CatchGenericTemplateRule
+        tags:
+            - phpstan.rules.rule
+
+    # The runtime reads the attributes and the analyser reads the doc tags; nothing in the
+    # language keeps the two in step except this.
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\TemplateParameterConsistencyRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\UnsupportedTypeArgumentRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\SlotAttributeRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\SelfClassInTemplateRule
+        tags:
+            - phpstan.rules.rule
+
+    -
+        class: Lisachenko\Generics\PHPStan\Rule\PropertyHooksInTemplateRule
+        tags:
+            - phpstan.rules.rule

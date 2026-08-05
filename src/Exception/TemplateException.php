@@ -36,7 +36,7 @@ final class TemplateException extends LogicException implements GenericsExceptio
         return new self(sprintf(
             'Generic template %s must implement %s. A specialization is a sibling of its template '
             . 'rather than a subclass, so an interface is the only relation that survives '
-            . 'monomorphization; see docs/instanceof-and-identity.md.',
+            . 'monomorphization; see "Identity: sibling, not subclass" in the README.',
             $className,
             $interfaceName,
         ));

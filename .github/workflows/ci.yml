@@ -74,6 +74,50 @@ jobs:
       - name: Run every scenario at the smallest size
         run: composer bench:smoke
 
+  analysis-tests:
+    name: PHPStan extension tests (FFI disabled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ffi.enable=0 is the assertion, not a convenience: the analysis layer has to work in
+      # CI and in an IDE, neither of which can be assumed to have a usable FFI. Pinning it off
+      # explicitly matters because ext-ffi is *loaded* on this runner by default - relying on
+      # the default would leave the job passing for the wrong reason on a host that enables it.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          ini-values: ffi.enable=0
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Run the analysis suite
+        run: composer test:analysis
+
+  generated-stubs:
+    name: Generated stubs are up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: ffi
+          ini-values: ffi.enable=1
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      # The project analyses itself with stubs its own generator produced. Regenerating here
+      # makes a generator change that stops matching them a failing build rather than a stale
+      # file nobody re-runs.
+      - name: Regenerate and compare
+        run: composer stubs:check
+
   static-analysis:
     name: PHPStan (level max)
     runs-on: ubuntu-latest
