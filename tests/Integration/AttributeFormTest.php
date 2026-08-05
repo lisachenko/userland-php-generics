@@ -18,6 +18,7 @@ use Lisachenko\Generics\Fixture\AttributeBox;
 use Lisachenko\Generics\Fixture\BuiltinSignatureTemplate;
 use Lisachenko\Generics\Fixture\UnknownParameterTemplate;
 use Lisachenko\Generics\Generic;
+use Lisachenko\Generics\RequiresEngine;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionProperty;
@@ -31,6 +32,8 @@ use ZEngine\Reflection\ReflectionMethod as EngineMethod;
  */
 final class AttributeFormTest extends TestCase
 {
+    use RequiresEngine;
+
     public function testAMixedPropertyIsRetypedAndEnforced(): void
     {
         $specialized = AttributeBox::of('int');

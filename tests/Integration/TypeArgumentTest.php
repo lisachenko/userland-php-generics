@@ -17,6 +17,7 @@ use Lisachenko\Generics\Exception\TypeArgumentException;
 use Lisachenko\Generics\Fixture\Bounded;
 use Lisachenko\Generics\Fixture\Box;
 use Lisachenko\Generics\Fixture\CountablePayload;
+use Lisachenko\Generics\RequiresEngine;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
@@ -27,6 +28,8 @@ use ReflectionProperty;
  */
 final class TypeArgumentTest extends TestCase
 {
+    use RequiresEngine;
+
     public function testNestedGenericsResolveInnermostFirst(): void
     {
         $inner = Box::of('float');

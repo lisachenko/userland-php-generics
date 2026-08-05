@@ -19,11 +19,19 @@
     <testsuites>
         <!--
           The engine suite drives the Zend Engine through z-engine and needs ext-ffi with
-          ffi.enable=1. A second "analysis" suite for the PHPStan extension, which runs
-          anywhere, joins this list once that extension exists.
+          ffi.enable=1.
         -->
         <testsuite name="engine">
             <directory>./tests/</directory>
+            <exclude>./tests/PHPStan/</exclude>
+        </testsuite>
+        <!--
+          The analysis suite covers the shipped PHPStan extension. It must run on a host with
+          no ext-ffi at all - that is the assertion, not a convenience: an analyser that needed
+          the engine to be loadable would be useless in CI and in an IDE.
+        -->
+        <testsuite name="analysis">
+            <directory>./tests/PHPStan/</directory>
         </testsuite>
     </testsuites>
     <groups>

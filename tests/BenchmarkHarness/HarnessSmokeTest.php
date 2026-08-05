@@ -19,6 +19,7 @@ use Lisachenko\Generics\Benchmark\Scenario\MonomorphizationMemoryScenario;
 use Lisachenko\Generics\Benchmark\Scenario\ScaleOutScenario;
 use Lisachenko\Generics\Benchmark\Scenario\Scenario;
 use Lisachenko\Generics\Benchmark\Scenario\SpecializationLatencyScenario;
+use Lisachenko\Generics\RequiresEngine;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -33,6 +34,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class HarnessSmokeTest extends TestCase
 {
+    use RequiresEngine;
+
     /**
      * @return iterable<string, array{Scenario}>
      */

@@ -1,3 +1,8 @@
+includes:
+    # Dogfooding: the package analyses itself with its own extension loaded, so a rule that
+    # crashes or a service that cannot be wired fails the build rather than only the users'
+    - extension.neon
+
 parameters:
     level: max
     phpVersion: 80400
@@ -9,6 +14,9 @@ parameters:
         analyse:
             # Analysis-only declarations, deliberately outside the PSR-4 layout
             - tests/phpstan
+            # Rule-test fixtures: they contain deliberate violations, which is the point of
+            # them, and every one is asserted by the rule test that owns it
+            - tests/PHPStan/data
             # Placeholder-form fixtures: their declared types are a fiction that only the
             # engine resolves, so analysing the declarations themselves reports the fiction.
             # They are still scanned, and Box is described properly through stubFiles below.
@@ -17,6 +25,10 @@ parameters:
             - tests/Fixture/Box.php
             - tests/Fixture/CompositeSlotTemplate.php
             - tests/Fixture/UnmarkedTemplate.php
+            # Declares #[Of('TOther')] with no such type parameter, on purpose: it is the
+            # fixture TemplateParserTest uses to assert the runtime rejects exactly that. The
+            # shipped SlotAttributeRule reports it, which is the rule working, not a defect.
+            - tests/Fixture/UnknownParameterTemplate.php
     # Declares the placeholder types the fixtures use as native types but that never exist at
     # runtime; see the file header for the rationale
     scanFiles:

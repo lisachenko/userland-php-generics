@@ -20,6 +20,7 @@ use Lisachenko\Generics\Fixture\Box;
 use Lisachenko\Generics\Fixture\Payload;
 use Lisachenko\Generics\Generic;
 use Lisachenko\Generics\GenericObject;
+use Lisachenko\Generics\RequiresEngine;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionProperty;
@@ -34,6 +35,8 @@ use TypeError;
  */
 final class EngineEnforcementTest extends TestCase
 {
+    use RequiresEngine;
+
     public function testSpecializationIsARealRegisteredClass(): void
     {
         $specialized = Box::of('int');

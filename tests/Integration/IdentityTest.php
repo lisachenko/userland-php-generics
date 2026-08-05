@@ -17,6 +17,7 @@ use Lisachenko\Generics\Fixture\Box;
 use Lisachenko\Generics\Fixture\Payload;
 use Lisachenko\Generics\Generic;
 use Lisachenko\Generics\GenericObject;
+use Lisachenko\Generics\RequiresEngine;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -24,6 +25,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class IdentityTest extends TestCase
 {
+    use RequiresEngine;
+
     public function testASpecializationIsNotAnInstanceOfItsTemplate(): void
     {
         $box = new (Box::of(Payload::class))();
