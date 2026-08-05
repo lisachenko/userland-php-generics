@@ -29,6 +29,7 @@ final class SlotDefinition
      * @param string      $templateParameter Name of the type parameter this slot carries, e.g. `T`
      * @param SlotForm    $form              How the slot announces its type parameter
      * @param string|null $declaredTypeName  Fully-qualified placeholder type name, Placeholder form only
+     * @param bool        $nullable          Whether the substituted type has to accept null
      */
     private function __construct(
         public readonly SlotKind $kind,
@@ -38,7 +39,37 @@ final class SlotDefinition
         public readonly string $templateParameter,
         public readonly SlotForm $form,
         public readonly ?string $declaredTypeName,
+        public readonly bool $nullable = false,
     ) {}
+
+    public static function attributeProperty(string $propertyName, string $templateParameter, bool $nullable): self
+    {
+        return new self(SlotKind::Property, $propertyName, null, null, $templateParameter, SlotForm::Attribute, null, $nullable);
+    }
+
+    public static function attributeParameter(
+        string $methodName,
+        int $parameterIndex,
+        string $parameterName,
+        string $templateParameter,
+        bool $nullable,
+    ): self {
+        return new self(
+            SlotKind::Parameter,
+            $methodName,
+            $parameterIndex,
+            $parameterName,
+            $templateParameter,
+            SlotForm::Attribute,
+            null,
+            $nullable,
+        );
+    }
+
+    public static function attributeReturnType(string $methodName, string $templateParameter, bool $nullable): self
+    {
+        return new self(SlotKind::ReturnType, $methodName, null, null, $templateParameter, SlotForm::Attribute, null, $nullable);
+    }
 
     public static function placeholderProperty(
         string $propertyName,

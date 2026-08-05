@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics\Integration;
 
-use Lisachenko\Generics\EngineTestCase;
 use Lisachenko\Generics\Exception\TemplateException;
 use Lisachenko\Generics\Exception\TypeArgumentException;
 use Lisachenko\Generics\Fixture\Anything;
@@ -21,6 +20,7 @@ use Lisachenko\Generics\Fixture\Box;
 use Lisachenko\Generics\Fixture\Payload;
 use Lisachenko\Generics\Generic;
 use Lisachenko\Generics\GenericObject;
+use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionProperty;
 use TypeError;
@@ -32,7 +32,7 @@ use TypeError;
  * Specializations stay registered in the class table for the rest of the process, so every
  * canonical name used here is used exactly once across the suite.
  */
-final class EngineEnforcementTest extends EngineTestCase
+final class EngineEnforcementTest extends TestCase
 {
     public function testSpecializationIsARealRegisteredClass(): void
     {

@@ -15,6 +15,7 @@ namespace Lisachenko\Generics\Runtime;
 
 use Lisachenko\Generics\Exception\SpecializationException;
 use Lisachenko\Generics\Strategy\SubstitutionRequest;
+use ZEngine\Core;
 use ZEngine\Reflection\ClassSpecializationException;
 use ZEngine\Reflection\ClassSpecializer;
 
@@ -41,10 +42,17 @@ final class Monomorphizer
         string $specializedName,
         SubstitutionRequest $request,
     ): string {
-        Bootstrap::boot();
+        if (!isset(Core::$executor)) {
+            Core::init();
+        }
 
         try {
-            $this->specializer->specialize($templateName, $specializedName, $request->typeSubstitutions);
+            $this->specializer->specialize(
+                $templateName,
+                $specializedName,
+                $request->typeSubstitutions,
+                $request->slotSubstitutions,
+            );
         } catch (ClassSpecializationException $exception) {
             throw SpecializationException::engineRejectedTemplate($templateName, $specializedName, $exception);
         }

@@ -13,38 +13,25 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics\Strategy;
 
+use ZEngine\Reflection\SlotSubstitutionMap;
 use ZEngine\Reflection\TypeSubstitutionMap;
 
 /**
- * The engine-level substitution a strategy asks for, in one value object
+ * The engine-level substitution the runtime is going to ask for, in one value object
  *
- * Keeping this separate from the strategies means the Monomorphizer has exactly one thing to
- * hand to `ClassSpecializer::specialize()`, no matter which form the template was written in.
+ * A template may mix both forms freely, so a request can carry both maps: the name-keyed one
+ * for slots that declare the placeholder as their type, the slot-addressed one for slots that
+ * announce it through an attribute.
  */
 final class SubstitutionRequest
 {
-    private function __construct(
-        public readonly ?TypeSubstitutionMap $typeSubstitutions,
+    public function __construct(
+        public readonly ?TypeSubstitutionMap $typeSubstitutions = null,
+        public readonly ?SlotSubstitutionMap $slotSubstitutions = null,
     ) {}
 
-    /**
-     * Substitutes by placeholder type name, the mechanism z-engine ships today
-     *
-     * @param array<string, string> $substitutions Placeholder type name => replacement type name
-     */
-    public static function byTypeName(array $substitutions): self
+    public function needsSlotSubstitution(): bool
     {
-        return new self(new TypeSubstitutionMap($substitutions));
-    }
-
-    /**
-     * Copies the template without rewriting any type
-     *
-     * Reached when a template declares parameters that no declaration slot uses; the copy is
-     * still a distinct class, it just has nothing to enforce.
-     */
-    public static function none(): self
-    {
-        return new self(null);
+        return $this->slotSubstitutions !== null;
     }
 }

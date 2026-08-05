@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics\Template;
 
+use Lisachenko\Generics\Attribute\Of;
+use Lisachenko\Generics\Attribute\OfReturn;
 use Lisachenko\Generics\Attribute\TemplateParameter;
 use Lisachenko\Generics\Exception\TemplateException;
 use Lisachenko\Generics\GenericObject;
@@ -138,6 +140,19 @@ final class TemplateParser
         ReflectionProperty $property,
         array $parameterNames,
     ): ?SlotDefinition {
+        $marked = $this->markedParameter($reflection, $property->getAttributes(Of::class), $parameterNames, sprintf('property $%s', $property->getName()));
+        if ($marked !== null) {
+            // A property write always consults zend_property_info, so any declared type can be
+            // replaced here - including `mixed`, which is the whole reason the attribute exists
+            $this->assertSingleType($reflection, $property->getType(), sprintf('property $%s', $property->getName()));
+
+            return SlotDefinition::attributeProperty(
+                $property->getName(),
+                $marked,
+                $this->slotIsNullable($property->getType(), $property->hasDefaultValue() && $property->getDefaultValue() === null),
+            );
+        }
+
         $match = $this->matchPlaceholder(
             $reflection,
             $property->getType(),
@@ -163,6 +178,20 @@ final class TemplateParser
     ): array {
         $slots = [];
         foreach ($method->getParameters() as $index => $parameter) {
+            $context = sprintf('parameter $%s of %s()', $parameter->getName(), $method->getName());
+            $marked  = $this->markedParameter($reflection, $parameter->getAttributes(Of::class), $parameterNames, $context);
+            if ($marked !== null) {
+                $this->assertSignatureSlotIsEnforceable($reflection, $parameter->getType(), $context);
+                $slots[] = SlotDefinition::attributeParameter(
+                    $method->getName(),
+                    $index,
+                    $parameter->getName(),
+                    $marked,
+                    $this->slotIsNullable($parameter->getType(), false),
+                );
+
+                continue;
+            }
             $match = $this->matchPlaceholder(
                 $reflection,
                 $parameter->getType(),
@@ -178,6 +207,19 @@ final class TemplateParser
                     $match[1],
                 );
             }
+        }
+
+        $returnContext = sprintf('return type of %s()', $method->getName());
+        $markedReturn  = $this->markedParameter($reflection, $method->getAttributes(OfReturn::class), $parameterNames, $returnContext);
+        if ($markedReturn !== null) {
+            $this->assertSignatureSlotIsEnforceable($reflection, $method->getReturnType(), $returnContext);
+            $slots[] = SlotDefinition::attributeReturnType(
+                $method->getName(),
+                $markedReturn,
+                $this->slotIsNullable($method->getReturnType(), false),
+            );
+
+            return $slots;
         }
 
         $returnMatch = $this->matchPlaceholder(
@@ -257,6 +299,82 @@ final class TemplateParser
         }
 
         return $named;
+    }
+
+    /**
+     * Reads the type parameter an #[Of]/#[OfReturn] attribute names, validating it exists
+     *
+     * @param  list<\ReflectionAttribute<Of|OfReturn>> $attributes
+     * @param  ReflectionClass<object>                  $reflection
+     * @param  array<string, string>                    $parameterNames
+     */
+    private function markedParameter(
+        ReflectionClass $reflection,
+        array $attributes,
+        array $parameterNames,
+        string $slotDescription,
+    ): ?string {
+        if ($attributes === []) {
+            return null;
+        }
+        $declared = $attributes[0]->newInstance()->parameter;
+        if (!isset($parameterNames[$declared])) {
+            throw TemplateException::unknownTemplateParameter($reflection->getName(), $slotDescription, $declared);
+        }
+
+        return $declared;
+    }
+
+    /**
+     * A parameter or return type declared as a builtin can be rewritten but never enforced
+     *
+     * The engine resolves the check for a builtin signature type at compile time and picks a
+     * specialized opcode handler; those opcodes are shared with the template by the copy model,
+     * so the substitution would show up in reflection and change nothing at run time. Refusing
+     * here turns that into a declaration error instead of a class that silently stops checking.
+     *
+     * @param ReflectionClass<object> $reflection
+     */
+    private function assertSignatureSlotIsEnforceable(
+        ReflectionClass $reflection,
+        ?ReflectionType $type,
+        string $slotDescription,
+    ): void {
+        $this->assertSingleType($reflection, $type, $slotDescription);
+        if ($type instanceof ReflectionNamedType && $type->isBuiltin()) {
+            throw TemplateException::builtinSignatureSlot($reflection->getName(), $slotDescription, $type->getName());
+        }
+    }
+
+    /**
+     * @param ReflectionClass<object> $reflection
+     */
+    private function assertSingleType(
+        ReflectionClass $reflection,
+        ?ReflectionType $type,
+        string $slotDescription,
+    ): void {
+        if ($type === null) {
+            throw TemplateException::untypedSlot($reflection->getName(), $slotDescription);
+        }
+        if (!$type instanceof ReflectionNamedType) {
+            throw TemplateException::placeholderInCompositeType($reflection->getName(), $slotDescription, 'the marked');
+        }
+    }
+
+    /**
+     * Whether the substituted type has to keep accepting null
+     *
+     * `mixed` accepts null but says nothing about intent, so it is deliberately not treated as
+     * a nullable declaration - only an explicit `?X` or a null default is.
+     */
+    private function slotIsNullable(?ReflectionType $type, bool $hasNullDefault): bool
+    {
+        if ($hasNullDefault) {
+            return true;
+        }
+
+        return $type instanceof ReflectionNamedType && $type->allowsNull() && $type->getName() !== 'mixed';
     }
 
     private function shortNameOf(string $typeName): string

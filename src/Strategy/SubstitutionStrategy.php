@@ -16,24 +16,15 @@ namespace Lisachenko\Generics\Strategy;
 use Lisachenko\Generics\Template\TemplateDefinition;
 
 /**
- * Turns "this parameter becomes this type" into whatever the engine can act on
+ * Translates the slots of one template form into engine-level substitutions
  *
- * There is one strategy per template form: the placeholder form keys substitutions by type
- * name, the attribute form addresses declaration slots directly. A strategy only ever
- * describes the substitution - the Monomorphizer is the single place that talks to the
- * engine.
+ * There is one strategy per form. They contribute to a shared plan instead of being selected
+ * between, because a single template may use both forms.
  */
 interface SubstitutionStrategy
 {
     /**
-     * Whether this strategy can handle every slot of the given template
-     */
-    public function supports(TemplateDefinition $template): bool;
-
-    /**
-     * Builds the engine-level substitution request
-     *
      * @param array<string, string> $bindings Type parameter name => concrete type name
      */
-    public function buildRequest(TemplateDefinition $template, array $bindings): SubstitutionRequest;
+    public function contribute(TemplateDefinition $template, array $bindings, SubstitutionPlan $plan): void;
 }

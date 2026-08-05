@@ -13,11 +13,11 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics\Integration;
 
-use Lisachenko\Generics\EngineTestCase;
 use Lisachenko\Generics\Exception\TypeArgumentException;
 use Lisachenko\Generics\Fixture\Bounded;
 use Lisachenko\Generics\Fixture\Box;
 use Lisachenko\Generics\Fixture\CountablePayload;
+use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
 /**
@@ -25,7 +25,7 @@ use ReflectionProperty;
  *
  * Every canonical specialized name used here is used exactly once across the suite.
  */
-final class TypeArgumentTest extends EngineTestCase
+final class TypeArgumentTest extends TestCase
 {
     public function testNestedGenericsResolveInnermostFirst(): void
     {

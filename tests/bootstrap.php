@@ -11,12 +11,10 @@
  */
 declare(strict_types=1);
 
-use Lisachenko\Generics\Runtime\Bootstrap;
+use ZEngine\Core;
 
 ini_set('display_errors', 'on');
 
 include __DIR__ . '/../vendor/autoload.php';
 
-// The engine boot is deliberately best-effort here: the analysis suite must run on a
-// host without ext-ffi, and EngineTestCase skips the engine suite with the real reason.
-Bootstrap::isAvailable();
+Core::init();

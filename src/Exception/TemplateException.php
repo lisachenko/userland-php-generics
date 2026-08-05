@@ -74,12 +74,50 @@ final class TemplateException extends LogicException implements GenericsExceptio
         ));
     }
 
-    public static function noSubstitutionStrategy(string $className): self
+    public static function slotSubstitutionUnavailable(string $className): self
     {
         return new self(sprintf(
-            'No substitution strategy can handle generic template %s. This usually means the '
-            . 'template mixes slot forms that the installed z-engine version cannot serve; see '
-            . 'docs/design-notes.md.',
+            'Generic template %s marks slots with #[Of] or #[OfReturn], which needs slot-addressed '
+            . 'substitution from z-engine. The installed z-engine has no SlotSubstitutionMap; either '
+            . 'upgrade it or declare those slots with a placeholder type instead.',
+            $className,
+        ));
+    }
+
+    public static function unknownTemplateParameter(string $className, string $slotDescription, string $parameterName): self
+    {
+        return new self(sprintf(
+            'Slot %s of generic template %s is marked as carrying the type parameter %s, which the '
+            . 'class does not declare with #[TemplateParameter].',
+            $slotDescription,
+            $className,
+            $parameterName,
+        ));
+    }
+
+    public static function builtinSignatureSlot(
+        string $className,
+        string $slotDescription,
+        string $declaredType,
+    ): self {
+        return new self(sprintf(
+            'Slot %s of generic template %s is marked with an attribute but is declared as the builtin '
+            . 'type "%s". The engine compiles the check for a builtin parameter or return type into '
+            . 'opcodes that every specialization shares with its template, so substituting it would be '
+            . 'reported by reflection and never enforced. Declare the slot with a placeholder type - '
+            . 'attribute-marked *properties* have no such restriction. See docs/limitations.md.',
+            $slotDescription,
+            $className,
+            $declaredType,
+        ));
+    }
+
+    public static function untypedSlot(string $className, string $slotDescription): self
+    {
+        return new self(sprintf(
+            'Slot %s of generic template %s is marked with an attribute but has no declared type, '
+            . 'so there is nothing for the engine to replace.',
+            $slotDescription,
             $className,
         ));
     }

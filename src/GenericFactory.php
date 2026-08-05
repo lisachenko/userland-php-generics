@@ -17,9 +17,12 @@ use Lisachenko\Generics\Exception\TemplateException;
 use Lisachenko\Generics\Exception\TypeArgumentException;
 use Lisachenko\Generics\Naming\AngleBracketNameMangler;
 use Lisachenko\Generics\Naming\NameMangler;
+use Lisachenko\Generics\Runtime\EngineCapabilities;
 use Lisachenko\Generics\Runtime\Monomorphizer;
 use Lisachenko\Generics\Runtime\SpecializationCache;
 use Lisachenko\Generics\Strategy\PlaceholderNameStrategy;
+use Lisachenko\Generics\Strategy\SlotAttributeStrategy;
+use Lisachenko\Generics\Strategy\SubstitutionPlan;
 use Lisachenko\Generics\Strategy\SubstitutionStrategy;
 use Lisachenko\Generics\Template\TemplateDefinition;
 use Lisachenko\Generics\Template\TemplateRegistry;
@@ -69,7 +72,7 @@ final class GenericFactory implements NestedTypeResolver
         ?array $strategies = null,
         private readonly int $depthLimit = self::DEFAULT_DEPTH_LIMIT,
     ) {
-        $this->strategies = $strategies ?? [new PlaceholderNameStrategy()];
+        $this->strategies = $strategies ?? [new PlaceholderNameStrategy(), new SlotAttributeStrategy()];
     }
 
     /**
@@ -95,9 +98,17 @@ final class GenericFactory implements NestedTypeResolver
             return $known;
         }
 
-        $request = $this->strategyFor($template)->buildRequest($template, $bindings);
+        $plan = new SubstitutionPlan();
+        foreach ($this->strategies as $strategy) {
+            $strategy->contribute($template, $bindings, $plan);
+        }
+        if ($plan->hasSlotSubstitutions() && !EngineCapabilities::supportsSlotSubstitution()) {
+            throw TemplateException::slotSubstitutionUnavailable($templateName);
+        }
 
-        return $this->cache->remember($this->monomorphizer->materialize($templateName, $name, $request));
+        return $this->cache->remember(
+            $this->monomorphizer->materialize($templateName, $name, $plan->toRequest()),
+        );
     }
 
     /**
@@ -166,17 +177,6 @@ final class GenericFactory implements NestedTypeResolver
         }
 
         return $bindings;
-    }
-
-    private function strategyFor(TemplateDefinition $template): SubstitutionStrategy
-    {
-        foreach ($this->strategies as $strategy) {
-            if ($strategy->supports($template)) {
-                return $strategy;
-            }
-        }
-
-        throw TemplateException::noSubstitutionStrategy($template->className);
     }
 
     private function chain(string $templateName): string

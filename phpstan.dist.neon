@@ -11,6 +11,7 @@ parameters:
             # Placeholder-form fixtures: their declared types are a fiction that only the
             # engine resolves, so analysing the declarations themselves reports the fiction.
             # They are still scanned, and Box is described properly through stubFiles below.
+            - tests/Fixture/AttributeBox.php
             - tests/Fixture/Bounded.php
             - tests/Fixture/Box.php
             - tests/Fixture/CompositeSlotTemplate.php
@@ -24,4 +25,5 @@ parameters:
     # analyser honest - bin/generics-stubs automates this for real code.
     stubFiles:
         - tests/phpstan/fixture-stubs.php
+        - tests/phpstan/attribute-box-stub.php
     treatPhpDocTypesAsCertain: false

@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics;
 
-use Lisachenko\Generics\Runtime\Bootstrap;
+use ZEngine\Core;
 
 /**
  * Static entry point to the generics runtime
@@ -30,11 +30,12 @@ final class Generic
      * Boots the engine now rather than on first specialization
      *
      * Optional - every specialization boots on demand - but calling it at application start
-     * turns "this host cannot do generics" into a startup error instead of a surprise later.
+     * surfaces an unusable host as a startup error instead of a surprise later. Z-Engine owns
+     * the environment checks and explains anything it cannot support.
      */
     public static function bootstrap(): void
     {
-        Bootstrap::boot();
+        Core::init();
     }
 
     /**
