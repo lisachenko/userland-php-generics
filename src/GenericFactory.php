@@ -145,6 +145,50 @@ final class GenericFactory implements NestedTypeResolver
     }
 
     /**
+     * Whether the value is a specialization, optionally of one particular template
+     *
+     * The answer `instanceof` cannot give. A specialization is a *sibling* of its template, so
+     * `$box instanceof Box` is false and always will be; this reads the name instead, which
+     * means it also works for an instance minted by a different factory.
+     *
+     * @param class-string|null $templateName
+     */
+    public function isSpecialization(object|string $value, ?string $templateName = null): bool
+    {
+        $parsed = $this->mangler->parse($this->classNameOf($value));
+        if ($parsed === null) {
+            return false;
+        }
+
+        return $templateName === null || $parsed->templateName === $templateName;
+    }
+
+    /**
+     * The template a specialization was made from, or null if this is not a specialization
+     *
+     * @return class-string|null
+     */
+    public function templateOf(object|string $value): ?string
+    {
+        return $this->mangler->parse($this->classNameOf($value))?->templateName;
+    }
+
+    /**
+     * The concrete type arguments a specialization was made for, in declaration order
+     *
+     * @return list<string>|null
+     */
+    public function bindingOf(object|string $value): ?array
+    {
+        return $this->mangler->parse($this->classNameOf($value))?->typeArguments;
+    }
+
+    private function classNameOf(object|string $value): string
+    {
+        return is_object($value) ? $value::class : $value;
+    }
+
+    /**
      * Validates arity and resolves each argument to the type name the engine will store
      *
      * @param  list<string>          $typeArguments
