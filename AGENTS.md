@@ -5,6 +5,54 @@ and manipulates live `zend_class_entry` structures through it. **Read
 [z-engine's `AGENTS.md`](https://github.com/lisachenko/z-engine/blob/master/AGENTS.md) first — every
 rule in it applies here too.** The rules below are the additions that are specific to this package.
 
+## 0. Decisions already taken — do not relitigate
+
+These were settled with measurements, not preferences. Changing one is a design decision that
+needs a reason, not a refactor. Each is explained in full in the README.
+
+1. **Attributes are the runtime source of truth; doc comments are the static-analysis source of
+   truth.** `opcache.save_comments=0` makes `doc_comment` NULL, so nothing on the runtime path
+   may read one. The `tests-opcache` CI job enforces this permanently.
+
+2. **Builtin-typed parameters and return types are rejected, not substituted.** The engine
+   resolves their check at compile time into opcodes every specialization shares with its
+   template, so a rewrite would show in reflection and never be enforced. Properties are
+   different — a property write always consults `zend_property_info` — and are allowed for any
+   declared type. If you find yourself "fixing" this rejection, you are about to ship a class
+   that silently stops checking.
+
+3. **No compile-time AST rewriting.** `zend_ast_process` does not fire on an opcache cache hit,
+   so under any normal production configuration the rewrite would never happen and the
+   specialization would carry no types at all. Same failure mode as (2): silence, not an error.
+
+4. **Angle brackets in specialized names are load-bearing.** No PHP source can declare a class
+   containing `<` and no PSR-4 autoloader can resolve one, which is what makes a collision with
+   a real class impossible. Do not "sanitize" the mangled name.
+
+5. **Nullable type arguments are refused.** Substitution preserves the nullability the template
+   declared and cannot introduce it, so accepting `Box<?int>` would quietly produce a
+   non-nullable slot. The fix is `?T` in the template, not leniency here.
+
+6. **A specialization is a sibling, not a subclass.** `instanceof` against the template is
+   `false` and cannot be made true. `GenericObject` is required so one relation always survives.
+   Tests assert this behaviour on purpose — do not "fix" them.
+
+7. **The cache adopts, it does not fail.** A specialized name that is already registered is
+   recorded and returned. Removing this breaks a second factory instance, a warm-up at worker
+   boot, and every `reset()`.
+
+8. **Validation happens before the engine is touched.** A rejected call must never leave a
+   half-registered class behind. New checks go with the other checks, not after the
+   `specialize()` call.
+
+9. **One class per PHPStan stub file.** PHPStan indexes only the first class declaration in a
+   stub and ignores the rest, and a stub cannot name your own interfaces or traits because stubs
+   are reflected before the analysed paths are indexed.
+
+10. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
+    should happen. Keeping the dependency in one place is what makes it possible to say exactly
+    when engine state is touched.
+
 ## 1. Version matching is still non-negotiable
 
 Engine struct layouts are version-specific. This package tracks **one PHP minor at a time**, the same
@@ -55,10 +103,9 @@ accidentally swallow it.
 ## 6. Test isolation: unique specialized names
 
 Specialized classes are registered in `EG(class_table)` for the rest of the process, and
-`specialize()` throws on a duplicate name. Tests therefore mint **unique target names**, via
-`SpecializationIsolationTrait`, which decorates the name mangler with a per-test discriminator. Only
-tests that must assert the *canonical* mangled name may use it, and each such name is used exactly
-once in the suite.
+`specialize()` throws on a duplicate name. Every canonical specialized name must therefore be used
+**exactly once across the whole suite** — two tests specializing `Box<int>` differently will collide,
+and the second one is the one that fails. Give each test its own type argument, or its own fixture.
 
 Anything that deletes from the class table belongs in `#[Group('internal')]` and runs under
 `composer test:internal` with process isolation, exactly as in z-engine.
@@ -98,8 +145,8 @@ src/Attribute/    the template and slot attributes users write
 src/Template/     parsing a template class into a TemplateDefinition
 src/Type/         type-argument grammar, validation and resolution
 src/Naming/       specialized class-name mangling and parsing
-src/Runtime/      the boot guard, cache, registry and monomorphizer
-src/Strategy/     the two substitution strategies (placeholder and attribute forms)
+src/Runtime/      the cache, the engine-capability probe and the monomorphizer
+src/Strategy/     the substitution strategies (placeholder and attribute forms) and their plan
 src/Exception/    the exception hierarchy
 src/PHPStan/      the shipped static-analysis extension
 benchmarks/       the monomorphization cost harness
