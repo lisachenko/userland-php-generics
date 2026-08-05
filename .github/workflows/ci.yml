@@ -26,7 +26,7 @@ jobs:
           ini-values: ffi.enable=1, zend.assertions=1, opcache.jit=off
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       - name: Run test suite
         run: composer test
@@ -48,7 +48,7 @@ jobs:
           ini-values: ffi.enable=1, zend.assertions=1, opcache.jit=off, opcache.enable=1, opcache.enable_cli=1, opcache.save_comments=0
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       - name: Run test suite without doc comments
         run: composer test
@@ -67,7 +67,7 @@ jobs:
           ini-values: ffi.enable=1, zend.assertions=1, opcache.jit=off
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       # Asserts that the harness runs and reports, never that a number came out a certain
       # way - a CI job that fails on a timing is a job people learn to ignore.
@@ -88,7 +88,7 @@ jobs:
           ini-values: ffi.enable=1
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       - name: Run static analysis
         run: composer phpstan
@@ -105,7 +105,7 @@ jobs:
           php-version: ${{ env.PHP_MINOR }}
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       - name: Check coding standards
         run: composer cs:check
