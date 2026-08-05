@@ -23,10 +23,10 @@ use Lisachenko\Generics\GenericTemplate;
  * The attribute form: slots announce their type parameter instead of naming it as their type
  *
  * The property is the case only this form can express - `mixed` has no type name for the
- * engine to key on. The signature slots still have to be declared with a placeholder type,
- * because the engine compiled the check for a builtin parameter into shared opcodes; here the
- * attribute earns its place by mapping one placeholder class onto a differently-named type
- * parameter.
+ * engine to key on. The signature slots here are declared with a placeholder type, so this
+ * fixture covers the attribute mapping one placeholder class onto a differently-named type
+ * parameter; BuiltinSignatureTemplate covers a `mixed` parameter, which needs the cached
+ * ZEND_RECV mask patched and works too.
  *
  * @template TValue
  */

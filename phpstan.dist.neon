@@ -4,6 +4,7 @@ parameters:
     paths:
         - src
         - tests
+        - benchmarks
     excludePaths:
         analyse:
             # Analysis-only declarations, deliberately outside the PSR-4 layout

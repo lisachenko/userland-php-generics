@@ -29,6 +29,15 @@ Two things follow from body sharing, and both show up later in this document: co
 constants folded into a body still say the template's name (`self::class`, `__CLASS__`), and
 anything the compiler decided *while compiling that body* is shared too.
 
+**This is now measured rather than argued.** [`docs/benchmarks.md`](benchmarks.md) reports the
+cost per specialization at two body sizes fifty times apart, and for a template whose slots are
+all properties, parameters of a class type, or return types, the two numbers are *identical to
+the byte*. The one shape that does move is a `mixed` parameter, for the reason in §3 — it is the
+only slot that un-shares an opcode array. Against a codegen monomorphizer that compiles the
+specialized source, the same 32-method template costs **11.6x less** at 200 statements per
+method and slightly *more* at 4, which is the honest shape of the trade: sharing bodies only
+pays once there is a body worth sharing.
+
 ## 2. How type enforcement actually works
 
 **Rewriting a type and having it enforced are not the same thing.** Which one you get depends on
@@ -113,7 +122,38 @@ blocks: `destroy_op_array()` frees whichever pointer its holder carries once the
 reaches zero, so one sibling block is released through the engine and the other is reclaimed by
 the request allocator at request end.
 
-## 4. The pipeline
+## 4. What a specialization costs at run time
+
+Minting one is not free and is not meant to be hot: roughly **220 us fixed plus 150 us per own
+method**, because every method has its `zend_op_array` struct copied and the copying is a long
+sequence of individual FFI calls from userland rather than one engine-side memcpy. Asking for an
+already-minted one costs about **2 us** — a name resolution and a cache hit — which is what makes
+`of()` safe to write wherever a generic type appears. Specialize at worker boot; the numbers are
+in [`docs/benchmarks.md`](benchmarks.md).
+
+Using one is where the interesting result is, and it was not the expected one.
+
+| Slot | Cost vs the same slot on a hand-written class |
+|---|---|
+| builtin-typed property (`#[Of]` on `mixed`, substituted to `int`) | parity |
+| class-typed property (`?T` substituted to a class) | **~2.3x** |
+| method dispatch, no checks | parity |
+| class-typed parameter | parity |
+
+The class-typed property write is the outlier, and it is not mysterious once measured: its cost
+**scales with the length of the type's class name**, while a compiled class is flat under the
+same change. Cost that tracks name length is cost spent resolving that name, so a specialization
+is looking its property type up on every write where a compiled class resolved it once. The
+engine reaches its fast path through a class-entry cache carried on interned strings, and the
+name written into a substituted type is created at run time rather than interned — that is the
+first place to look, and it is a hypothesis this harness has not proven.
+
+Two practical consequences. A builtin type argument is the cheaper one to *use*, not just the
+one the attribute form exists for. And a **nested** generic pays this on every write to its inner
+slot, because there the type argument is itself a specialization and its angle-bracket name is
+long by construction.
+
+## 5. The pipeline
 
 ```
 #[TemplateParameter] class
@@ -142,20 +182,20 @@ half-registered class behind, which is the same contract `ClassSpecializer` itse
 the class table is recorded and returned, because specializations live for the rest of the
 request and `specialize()` refuses a duplicate name.
 
-## 5. Naming
+## 6. Naming
 
 `App\Box<int>`. No PHP source can declare a class whose name contains `<` and no PSR-4 autoloader
 can resolve one, so a specialization can never collide with a real class — while the name stays
 readable in `get_class()`, `var_dump()` and stack traces. Nested arguments nest naturally.
 
-## 6. Identity
+## 7. Identity
 
 A specialization is a **sibling** of its template, not a subclass: it shares the template's parent
 and interfaces rather than extending it, so `$box instanceof Box` is `false`. This is the copy
 model and cannot be changed. `GenericObject` is a required marker precisely so that one relation
 always survives; the documented pattern is to type-hint an interface or an abstract base.
 
-## 7. Alternatives considered and rejected
+## 8. Alternatives considered and rejected
 
 **Compile-time AST rewriting.** Rewriting `mixed` into a placeholder through
 `zend_ast_process` would have given the nicest source syntax. But that hook does not fire on an

@@ -54,7 +54,20 @@ needs a reason, not a refactor. Each is explained in full in the README.
    stub and ignores the rest, and a stub cannot name your own interfaces or traits because stubs
    are reflected before the analysed paths are indexed.
 
-10. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
+10. **Benchmark findings are computed from the run, never written by hand.** Every sentence
+    under a table in `docs/benchmarks.md` is generated from the numbers that run produced, so a
+    result that moves cannot leave a stale claim behind it. If you catch yourself hard-coding a
+    conclusion a scenario is supposed to establish, that is the bug — the harness already found
+    one prediction wrong (see item 11), and it could only do so because it reports rather than
+    asserts.
+
+11. **A class-typed property write is ~2.3x a compiled one, and that is measured.** Its cost
+    scales with the type argument's class-name length, which says the name is being resolved on
+    every write. Everything else - dispatch, class-typed parameters, builtin-typed properties -
+    is at parity. Do not "explain" this away in docs; if you fix it, fix it in z-engine and
+    re-run `composer bench`. See docs/design.md §4.
+
+12. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
     should happen. Keeping the dependency in one place is what makes it possible to say exactly
     when engine state is touched.
 
