@@ -179,7 +179,8 @@ final class CallDispatchScenario implements Scenario
                     . 'a class-entry cache attached to interned strings, and the name z-engine '
                     . 'writes into a substituted type is created at run time rather than interned. '
                     . 'That is the suspected mechanism and the obvious place to look first; it is '
-                    . 'not something this harness has proven.'
+                    . 'not something this harness has proven. Filed as '
+                    . '[z-engine#130](https://github.com/lisachenko/z-engine/issues/130).'
                 : 'No dependence on name length, so nothing is being resolved per write.',
             'What is being lengthened here is the **type argument\'s** name - the name written '
             . 'into the property\'s type - not the specialization\'s own mangled name, which no '

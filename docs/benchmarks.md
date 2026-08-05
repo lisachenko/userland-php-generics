@@ -16,7 +16,7 @@ shares its method bodies with the template, and these tables are the evidence.
 - **OPcache** — loaded, disabled for CLI
 - **JIT** — off
 - **zend.assertions** — -1
-- **CPU** — Intel(R) Xeon(R) Processor @ 2.80GHz
+- **CPU** — Intel(R) Xeon(R) Processor @ 2.10GHz
 - **sizeof(zend_class_entry)** — 520 bytes
 - **sizeof(zend_op_array)** — 256 bytes
 - **sizeof(zend_property_info)** — 72 bytes
@@ -40,7 +40,7 @@ byte count only means something next to the size of the things being counted.
 | none | 32 | 200 | 206 | 23912 | 0 | 28541 | 8784 | 2.72x | 0.96822 |
 | property-only | 1 | 4 | 12 | 3112 | 655 | 3302 | 912 | 3.41x | 0.99959 |
 | property-only | 1 | 200 | 208 | 3112 | 0 | 3302 | 912 | 3.41x | 0.99959 |
-| property-only | 8 | 4 | 12 | 7592 | 0 | 7782 | 3152 | 2.41x | 0.99993 |
+| property-only | 8 | 4 | 12 | 7592 | 655 | 7782 | 3152 | 2.41x | 0.99993 |
 | property-only | 8 | 200 | 208 | 7592 | 655 | 7782 | 3152 | 2.41x | 0.99993 |
 | property-only | 32 | 4 | 12 | 23912 | 655 | 24102 | 10832 | 2.21x | 0.99999 |
 | property-only | 32 | 200 | 208 | 23912 | 655 | 38222 | 10832 | 2.21x | 0.93731 |
@@ -88,18 +88,18 @@ byte count only means something next to the size of the things being counted.
 
 | slot | M | K | median (us) | p95 (us) | memoized (us) |
 |---|---|---|---|---|---|
-| class-parameter | 1 | 20 | 371.4 | 508.7 | 2.06 |
-| class-parameter | 8 | 20 | 1416.9 | 1593.7 | 2.091 |
-| class-parameter | 32 | 20 | 5174 | 5760 | 2.067 |
-| builtin-parameter | 1 | 20 | 350.4 | 445.7 | 2.078 |
-| builtin-parameter | 8 | 20 | 1325.8 | 1625 | 2.102 |
-| builtin-parameter | 32 | 20 | 4095.2 | 4784.2 | 2.076 |
+| class-parameter | 1 | 20 | 285.9 | 424.6 | 1.559 |
+| class-parameter | 8 | 20 | 1051.4 | 1338.4 | 1.599 |
+| class-parameter | 32 | 20 | 4012.4 | 4839.8 | 2.721 |
+| builtin-parameter | 1 | 20 | 281.5 | 424.9 | 1.538 |
+| builtin-parameter | 8 | 20 | 995.5 | 1130.8 | 1.606 |
+| builtin-parameter | 32 | 20 | 3414.9 | 3949.6 | 1.548 |
 
-- `class-parameter`: about **198 us fixed** per specialization plus **155 us per own method** (r2 1.000). Every method pays it whether or not it has a substituted slot, because every one has its `zend_op_array` struct copied.
-- `builtin-parameter`: about **292 us fixed** per specialization plus **119 us per own method** (r2 0.999). Every method pays it whether or not it has a substituted slot, because every one has its `zend_op_array` struct copied.
+- `class-parameter`: about **129 us fixed** per specialization plus **121 us per own method** (r2 1.000). Every method pays it whether or not it has a substituted slot, because every one has its `zend_op_array` struct copied.
+- `builtin-parameter`: about **184 us fixed** per specialization plus **101 us per own method** (r2 1.000). Every method pays it whether or not it has a substituted slot, because every one has its `zend_op_array` struct copied.
 - Those are the numbers behind the "specialize at worker boot, not per request" advice: minting is not a hot-path operation.
 - The work is a long sequence of individual FFI calls from userland rather than one engine-side copy, which is where most of that time goes. It is a property of driving the engine through FFI, not of monomorphization.
-- Asking again costs about **2.1 us** regardless of shape - the factory resolves and mangles the name, then finds it in the cache. That is what makes `of()` safe to write wherever a generic type is needed.
+- Asking again costs about **1.8 us** regardless of shape - the factory resolves and mangles the name, then finds it in the cache. That is what makes `of()` safe to write wherever a generic type is needed.
 - Timings are sensitive to `zend.assertions`: with assertions on, z-engine verifies every relocated operand of a copied opcode array. The environment block above records which setting produced these numbers.
 
 ## Scaling out to many specializations
@@ -113,10 +113,10 @@ byte count only means something next to the size of the things being counted.
 | Total memory | 5.9 MiB |
 | Memory per specialization | 6.1 KiB |
 | RSS delta | 6.1 MiB |
-| Total time | 852.9 ms |
-| Time per specialization | 852.9 us |
-| Class lookup before | 77.8 ns |
-| Class lookup after | 77.0 ns |
+| Total time | 664.6 ms |
+| Time per specialization | 664.6 us |
+| Class lookup before | 66.4 ns |
+| Class lookup after | 58.2 ns |
 
 - Memory per specialization here is a plain total divided by N, not a fitted slope, so it carries the one-off costs the memory scenario deliberately cancels. Read that scenario for the marginal number and this one for the bill.
 - The class table is a hash, so the lookup figures are expected to match. They are measured because "the class table gets slow" is the objection this approach would otherwise have to answer with an assurance.
@@ -127,17 +127,17 @@ byte count only means something next to the size of the things being counted.
 
 | property | subject | ns/call | vs hand-written |
 |---|---|---|---|
-| class-typed | specialization | 107.2 | 2.32x |
-| class-typed | hand-written | 46.1 | 1.00x |
-| class-typed | mixed (unchecked) | 41.4 | 0.90x |
-| builtin-typed | specialization | 36.6 | 0.98x |
-| builtin-typed | hand-written | 37.2 | 1.00x |
-| builtin-typed | mixed (unchecked) | 37 | 0.99x |
+| class-typed | specialization | 80.8 | 2.55x |
+| class-typed | hand-written | 31.7 | 1.00x |
+| class-typed | mixed (unchecked) | 29.3 | 0.93x |
+| builtin-typed | specialization | 27.9 | 0.99x |
+| builtin-typed | hand-written | 28.2 | 1.00x |
+| builtin-typed | mixed (unchecked) | 27.7 | 0.98x |
 
-- A **class-typed** specialized property wrote at **2.32x** the cost of the same property on a compiled class. That is not parity, and the next lines are the cause.
-- A **builtin-typed** specialized property wrote at **0.98x** the cost of the same property on a compiled class. That is parity within run-to-run variation: the engine tests the value against a type mask and never looks at where the class came from.
-- Lengthening the *type argument's class name* from a short one to 120 characters moved the write by **+32.7 ns/call** (122.4 -> 155.2). A compiled class is flat under the same change.
+- A **class-typed** specialized property wrote at **2.55x** the cost of the same property on a compiled class. That is not parity, and the next lines are the cause.
+- A **builtin-typed** specialized property wrote at **0.99x** the cost of the same property on a compiled class. That is parity within run-to-run variation: the engine tests the value against a type mask and never looks at where the class came from.
+- Lengthening the *type argument's class name* from a short one to 120 characters moved the write by **+47.4 ns/call** (78.8 -> 126.2). A compiled class is flat under the same change.
 - That probe uses a **class-typed** property. A builtin-typed one has no name to resolve, which is why it sits at parity above and why the attribute form is the cheaper of the two whenever the type argument is a builtin.
-- Cost that tracks name length is cost spent resolving the name, which means the specialization is looking its property type up on **every write** while a compiled class resolves it once. The engine reaches that fast path through a class-entry cache attached to interned strings, and the name z-engine writes into a substituted type is created at run time rather than interned. That is the suspected mechanism and the obvious place to look first; it is not something this harness has proven.
+- Cost that tracks name length is cost spent resolving the name, which means the specialization is looking its property type up on **every write** while a compiled class resolves it once. The engine reaches that fast path through a class-entry cache attached to interned strings, and the name z-engine writes into a substituted type is created at run time rather than interned. That is the suspected mechanism and the obvious place to look first; it is not something this harness has proven. Filed as [z-engine#130](https://github.com/lisachenko/z-engine/issues/130).
 - What is being lengthened here is the **type argument's** name - the name written into the property's type - not the specialization's own mangled name, which no property write ever reads. The two coincide for a nested generic, where the argument *is* a specialization and its angle-bracket name is long by construction: `Box<Box<int>>` pays this on every write to its inner slot.
 

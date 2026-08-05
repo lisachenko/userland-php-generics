@@ -35,15 +35,23 @@ PHP build, so you can work on the PHPStan extension anywhere.
    half-registered class behind.
 4. Add a static named constructor for every new failure mode instead of an inline `throw`.
 5. Give every test that registers a specialization a unique target name.
-6. Add or update tests, and update the support matrix in `docs/` when behaviour changes.
-7. Use [Conventional Commits](https://www.conventionalcommits.org/).
+6. Add or update tests, and update `docs/` when behaviour changes — `design.md` for how the
+   engine is driven, `static-analysis.md` for the extension.
+7. If you touch a template fixture or the stub generator, run `composer stubs:generate`. The
+   stubs under `tests/phpstan/generated/` are committed and `composer stubs:check` runs in CI,
+   so hand-editing one works only until the next run throws the edit away.
+8. Never hand-edit `docs/benchmarks.md` — it is written by `composer bench`, and every sentence
+   under a table is computed from that run. If a number needs explaining, explain it in the
+   scenario that produces it.
+9. Use [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## Pull request checklist
 
 - [ ] `composer test` passes on the matching PHP minor
 - [ ] `composer phpstan` and `composer cs:check` are green
+- [ ] `composer stubs:check` is green if you touched a template or the generator
 - [ ] tests added or updated, with unique specialized class names
-- [ ] docs updated if behaviour or the support matrix changed
+- [ ] docs updated if behaviour changed
 - [ ] conventional commit messages
 
 ## Reporting bugs
