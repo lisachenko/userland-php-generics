@@ -17,7 +17,7 @@ namespace Lisachenko\Generics\Template;
  * How a slot announces which type parameter it carries
  *
  * The two forms exist because they are enforced by two different engine mechanisms, and a
- * template may mix them freely - see docs/design-notes.md.
+ * template may mix them freely - see docs/design.md.
  */
 enum SlotForm
 {

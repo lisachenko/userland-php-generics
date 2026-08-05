@@ -33,8 +33,8 @@ final class SpecializationException extends RuntimeException implements Generics
     ): self {
         return new self(
             sprintf(
-                'Generic template %s cannot be monomorphized into %s: %s See docs/limitations.md for '
-                . 'the kinds of class that can be used as a template.',
+                'Generic template %s cannot be monomorphized into %s: %s See "Known limitations" '
+                . 'in the README for the kinds of class that can be used as a template.',
                 $templateName,
                 $specializedName,
                 rtrim($previous->getMessage(), '.') . '.',

@@ -30,9 +30,14 @@ use Attribute;
  * A promoted constructor property carrying this attribute produces **two** slots, the
  * parameter and the property, because native reflection reports the attribute on both.
  *
- * Parameters and return types have a restriction properties do not: their declared type must
- * be class-like. See docs/limitations.md - the engine compiles the check for a builtin-typed
- * parameter into opcodes the specialization shares with its template.
+ * Properties, parameters and return types can all be marked, whatever they declare. A `mixed`
+ * parameter costs slightly more than the others: the engine tests a type mask the compiler
+ * cached into the `ZEND_RECV` opline, so re-typing one means un-sharing that method's opcode
+ * array. The engine handles that; see docs/design.md.
+ *
+ * The one slot that cannot be marked is a return type the compiler emitted no check for - a
+ * `mixed` return, or one it proved already satisfies the declaration. There is no opline to
+ * make the substitution take effect, so it is rejected rather than silently unenforced.
  */
 #[Attribute(Attribute::TARGET_PROPERTY | Attribute::TARGET_PARAMETER)]
 final class Of
