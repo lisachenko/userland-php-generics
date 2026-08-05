@@ -1,0 +1,14 @@
+parameters:
+    level: max
+    phpVersion: 80400
+    paths:
+        - src
+        - tests
+    excludePaths:
+        # Analysis-only declarations, deliberately outside the PSR-4 layout
+        - tests/phpstan/generics-runtime-stubs.php
+    # Declares the placeholder types and the runtime-minted specializations the fixtures
+    # rely on; see the file header for the rationale
+    scanFiles:
+        - tests/phpstan/generics-runtime-stubs.php
+    treatPhpDocTypesAsCertain: false
