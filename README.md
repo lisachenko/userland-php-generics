@@ -113,6 +113,10 @@ an unspecialized `Box` accepts nothing at all.
 Every validation happens **before** the engine is asked for anything, so a rejected call can
 never leave a half-registered class behind.
 
+Step 1 has a second consumer: `bin/generics-stubs` renders the same slots as `mixed` plus doc
+tags for PHPStan. Sharing the parser is what makes the generator accept exactly what the runtime
+accepts — see [Static analysis](#static-analysis).
+
 ### Naming
 
 A specialization is called `App\Box<int>`, and the angle brackets are load-bearing rather than
@@ -130,7 +134,8 @@ decorative:
 Specializations live in the engine's class table for the rest of the request, and
 `specialize()` refuses a duplicate name. The cache therefore **adopts** rather than fails: a
 name that is already registered — by another factory instance, by a warm-up at worker boot, or
-after a `reset()` — is recorded and returned instead of being built a second time.
+after the cache was cleared with `forget()` — is recorded and returned instead of being built a
+second time.
 
 ## Requirements and installation
 
@@ -334,8 +339,8 @@ is the whole reason for the warm-up advice below. Asking for an already-minted s
 about **2 us**, so `of()` is safe to write wherever a generic type appears.
 
 **Using.** A specialized method dispatches at parity with a hand-written class, and so does a
-builtin-typed property write. A **class-typed property write is ~2.3x**, and its cost scales with
-the length of the type argument's class name — a compiled class resolves that name once, a
+builtin-typed property write. A **class-typed property write costs more than 2x**, and that cost
+scales with the length of the type argument's class name — a compiled class resolves that name once, a
 specialization appears to resolve it on every write. It is the one measured non-parity in the
 package, it is worst for nested generics (whose type argument names are long by construction),
 and it is written up in [`docs/design.md`](docs/design.md#4-what-a-specialization-costs-at-run-time).
@@ -358,7 +363,7 @@ registration lives until the request (or worker) ends. Nothing survives shutdown
 | **Sibling, not subclass** — `$box instanceof Box` is `false` | the copy shares the template's parent and interfaces, it does not extend it | type-hint an interface or abstract base; both are preserved |
 | **`self::class` / `__CLASS__` name the template** | the compiler folded them into opcodes the copy shares | use `static::class` |
 | **`array<T>` / `iterable<T>` element types are not enforced** | `zend_type` has no parametric array type; only the top-level declaration is checked | the doc tag still carries it, so PHPStan enforces it statically — the engine does not. This is the most likely source of false confidence |
-| **A builtin *parameter* cannot be re-typed when the body is opcache-shared** | it needs the opcodes un-shared, and an `IS_CONST` operand only reaches 2GB | use a placeholder type for that parameter; everything else is unaffected |
+| **A builtin *parameter* cannot be re-typed when the body is opcache-shared** | it needs the opcodes un-shared, and an `IS_CONST` operand only reaches 2GB | use a placeholder type for that parameter; everything else is unaffected. Tracked as [z-engine#131](https://github.com/lisachenko/z-engine/issues/131) |
 | **A return type with an unguarded return path cannot be re-typed** | the compiler emitted no check there — a `mixed` return, or one it proved valid | give the method a non-`mixed` return type and a non-constant return; rejected loudly, never silently unenforced |
 | **Union and intersection type arguments** | no `zend_type` can hold them without building a type list | rejected loudly at resolution time |
 | **Nullable type arguments** | substitution preserves the template's nullability and cannot add it | declare the slot as `?T` |
@@ -369,12 +374,13 @@ registration lives until the request (or worker) ends. Nothing survives shutdown
 | **Specialized names are unparseable by PHP** | deliberate — it is what guarantees no collision | use `Box::of()`; the name is still readable everywhere it is printed |
 | **PHP 8.4 NTS x64, `ffi.enable=1`, `opcache.jit=off`** | engine struct layouts are version- and build-specific | mirror z-engine's branch-per-minor model |
 | **Generic methods and generic functions** | no engine primitive for method-level specialization | out of scope |
-| **A class-typed property write costs ~2.3x a compiled one** | its type name looks resolved per write rather than once; the cost tracks the name's length | prefer a builtin type argument where the choice exists; measured in [docs/benchmarks.md](docs/benchmarks.md) rather than assumed away |
+| **A class-typed property write costs more than 2x a compiled one** | its type name looks resolved per write rather than once; the cost tracks the name's length | prefer a builtin type argument where the choice exists. Measured in [docs/benchmarks.md](docs/benchmarks.md) rather than assumed away, and tracked as [z-engine#130](https://github.com/lisachenko/z-engine/issues/130) |
 
 ## Design notes
 
-Three alternatives were considered and rejected; they are recorded here because the reasons are
-the interesting part.
+Four alternatives were considered and rejected; they are recorded here because the reasons are
+the interesting part. [`docs/design.md`](docs/design.md) has them in full, alongside the
+measurements that settled them.
 
 **Compile-time AST rewriting.** Rewriting `mixed` into a placeholder through
 `Core::setASTProcessHandler()` would have given the nicest source syntax. But
@@ -390,6 +396,10 @@ under opcache is worse than none.
 **Recompiling method bodies.** It would handle even the elided-check cases, correctly and by
 construction — but at the cost of a real compile per specialization and the loss of body sharing,
 which works directly against the memory result this project exists to measure.
+
+**Inserting the missing `VERIFY_RETURN_TYPE` oplines.** Growing an opcode array means renumbering
+every jump, `live_range` and `try_catch_array` entry — high risk for the two cases the up-front
+rejection already handles honestly.
 
 ## Contributing
 

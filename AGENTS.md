@@ -44,7 +44,7 @@ needs a reason, not a refactor. Each is explained in full in the README.
 
 7. **The cache adopts, it does not fail.** A specialized name that is already registered is
    recorded and returned. Removing this breaks a second factory instance, a warm-up at worker
-   boot, and every `reset()`.
+   boot, and every `SpecializationCache::forget()`.
 
 8. **Validation happens before the engine is touched.** A rejected call must never leave a
    half-registered class behind. New checks go with the other checks, not after the
@@ -61,7 +61,7 @@ needs a reason, not a refactor. Each is explained in full in the README.
     one prediction wrong (see item 11), and it could only do so because it reports rather than
     asserts.
 
-11. **A class-typed property write is ~2.3x a compiled one, and that is measured.** Its cost
+11. **A class-typed property write costs more than 2x a compiled one, and that is measured.** Its cost
     scales with the type argument's class-name length, which says the name is being resolved on
     every write. Everything else - dispatch, class-typed parameters, builtin-typed properties -
     is at parity. Do not "explain" this away in docs; if you fix it, fix it in z-engine and
@@ -172,7 +172,11 @@ src/Naming/       specialized class-name mangling and parsing
 src/Runtime/      the cache, the engine-capability probe and the monomorphizer
 src/Strategy/     the substitution strategies (placeholder and attribute forms) and their plan
 src/Exception/    the exception hierarchy
-src/PHPStan/      the shipped static-analysis extension
+src/PHPStan/      the shipped static-analysis extension: inference and rules
+src/StubGenerator/ renders the PHPStan stubs a placeholder-form template needs
+bin/generics-stubs the CLI over StubGenerator; --check is what CI runs
+extension.neon    wires the extension up, auto-loaded by phpstan/extension-installer
 benchmarks/       the monomorphization cost harness
-docs/             long-form guides, the support matrix and the benchmark numbers
+docs/             design.md, static-analysis.md and the generated benchmarks.md
+tests/phpstan/generated/  committed generator output - regenerate, never edit
 ```
