@@ -124,7 +124,8 @@ rather than `stubFiles`.
 
 `phpstan.dist.neon` includes `extension.neon`, and the stubs in `tests/phpstan/generated/` are
 produced by `composer stubs:generate` and committed. `composer stubs:check` runs in CI and
-fails on any diff.
+fails on any diff. A third job runs `composer test:analysis` with `ffi.enable=0`, so the claim
+that the analysis layer needs no engine is tested rather than asserted.
 
 That is deliberate rather than tidy: it means a rule that crashes, a service that cannot be
 wired, or a generator change that stops producing what the project relies on all fail the build

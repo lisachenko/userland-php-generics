@@ -75,18 +75,20 @@ jobs:
         run: composer bench:smoke
 
   analysis-tests:
-    name: PHPStan extension tests (no FFI)
+    name: PHPStan extension tests (FFI disabled)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Deliberately no `extensions: ffi` and no ffi.enable. The analysis layer must work in
-      # CI and in an IDE, neither of which can be assumed to have a usable FFI - so running
-      # this job on a host without it is the assertion, not a convenience.
+      # ffi.enable=0 is the assertion, not a convenience: the analysis layer has to work in
+      # CI and in an IDE, neither of which can be assumed to have a usable FFI. Pinning it off
+      # explicitly matters because ext-ffi is *loaded* on this runner by default - relying on
+      # the default would leave the job passing for the wrong reason on a host that enables it.
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_MINOR }}
+          ini-values: ffi.enable=0
           coverage: none
 
       - uses: ramsey/composer-install@v3
