@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  # Engine structures are version-specific; this package tracks one PHP minor at a time,
+  # exactly like the z-engine branch it builds on.
+  PHP_MINOR: '8.4'
+
+jobs:
+  tests:
+    name: Tests (release, NTS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: ffi
+          ini-values: ffi.enable=1, zend.assertions=1, opcache.jit=off
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Run test suite
+        run: composer test
+
+  tests-opcache:
+    name: Tests (opcache, save_comments=0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: ffi
+          # save_comments=0 is a normal production setting that makes doc comments
+          # unavailable at runtime; this job is the permanent guard that nothing in the
+          # runtime path ever reads one.
+          ini-values: ffi.enable=1, zend.assertions=1, opcache.jit=off, opcache.enable=1, opcache.enable_cli=1, opcache.save_comments=0
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Run test suite without doc comments
+        run: composer test
+
+  benchmarks-smoke:
+    name: Benchmarks (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: ffi
+          ini-values: ffi.enable=1, zend.assertions=1, opcache.jit=off
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      # Asserts that the harness runs and reports, never that a number came out a certain
+      # way - a CI job that fails on a timing is a job people learn to ignore.
+      - name: Run every scenario at the smallest size
+        run: composer bench:smoke
+
+  static-analysis:
+    name: PHPStan (level max)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: ffi
+          ini-values: ffi.enable=1
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Run static analysis
+        run: composer phpstan
+
+  coding-standards:
+    name: Coding standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Check coding standards
+        run: composer cs:check

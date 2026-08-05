@@ -1,0 +1,30 @@
+parameters:
+    level: max
+    phpVersion: 80400
+    paths:
+        - src
+        - tests
+        - benchmarks
+    excludePaths:
+        analyse:
+            # Analysis-only declarations, deliberately outside the PSR-4 layout
+            - tests/phpstan
+            # Placeholder-form fixtures: their declared types are a fiction that only the
+            # engine resolves, so analysing the declarations themselves reports the fiction.
+            # They are still scanned, and Box is described properly through stubFiles below.
+            - tests/Fixture/AttributeBox.php
+            - tests/Fixture/Bounded.php
+            - tests/Fixture/Box.php
+            - tests/Fixture/CompositeSlotTemplate.php
+            - tests/Fixture/UnmarkedTemplate.php
+    # Declares the placeholder types the fixtures use as native types but that never exist at
+    # runtime; see the file header for the rationale
+    scanFiles:
+        - tests/phpstan/generics-runtime-stubs.php
+    # Re-describes the placeholder-form fixtures as the classes they behave like at runtime.
+    # A placeholder native type beats any @param tag, so a stub is the only way to keep the
+    # analyser honest - bin/generics-stubs automates this for real code.
+    stubFiles:
+        - tests/phpstan/fixture-stubs.php
+        - tests/phpstan/attribute-box-stub.php
+    treatPhpDocTypesAsCertain: false

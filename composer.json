@@ -1,0 +1,67 @@
+{
+    "name": "lisachenko/userland-php-generics",
+    "description": "Reified generics for PHP: templates monomorphized into real class entries by the Zend Engine",
+    "type": "library",
+    "keywords": [
+        "generics",
+        "templates",
+        "monomorphization",
+        "reification",
+        "ffi",
+        "zend",
+        "engine"
+    ],
+    "license": [
+        "MIT"
+    ],
+    "authors": [
+        {
+            "name": "Alexander Lisachenko",
+            "email": "lisachenko.it@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "~8.4.0",
+        "ext-ffi": "*",
+        "lisachenko/z-engine": "dev-master"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.75",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^12.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Lisachenko\\Generics\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Lisachenko\\Generics\\": "tests/",
+            "Lisachenko\\Generics\\Benchmark\\": "benchmarks/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "phpunit",
+        "test:internal": "phpunit --group internal --process-isolation",
+        "bench": "php benchmarks/run.php",
+        "bench:smoke": "php benchmarks/run.php --smoke",
+        "phpstan": "phpstan analyse",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix"
+    },
+    "scripts-descriptions": {
+        "test": "Run the test suite (destructive internal group excluded)",
+        "test:internal": "Run the destructive class-table group with process isolation",
+        "bench": "Measure the cost of monomorphization and rewrite docs/benchmarks.md",
+        "bench:smoke": "Run every benchmark scenario at a tiny size so it cannot bit-rot",
+        "phpstan": "Run static analysis at the maximum level",
+        "cs:check": "Check coding standards without fixing",
+        "cs:fix": "Fix coding standards"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
