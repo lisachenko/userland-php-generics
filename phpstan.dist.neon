@@ -29,14 +29,12 @@ parameters:
             # fixture TemplateParserTest uses to assert the runtime rejects exactly that. The
             # shipped SlotAttributeRule reports it, which is the rule working, not a defect.
             - tests/Fixture/UnknownParameterTemplate.php
-    # Declares the placeholder types the fixtures use as native types but that never exist at
-    # runtime; see the file header for the rationale
+    # Both of these are produced by `composer stubs:generate` and committed. The project runs
+    # its own generator on its own fixtures on purpose: a change that stopped the generator
+    # producing what the project relies on fails CI rather than going unnoticed.
     scanFiles:
-        - tests/phpstan/generics-runtime-stubs.php
-    # Re-describes the placeholder-form fixtures as the classes they behave like at runtime.
-    # A placeholder native type beats any @param tag, so a stub is the only way to keep the
-    # analyser honest - bin/generics-stubs automates this for real code.
+        - tests/phpstan/generated/placeholders.php
     stubFiles:
-        - tests/phpstan/fixture-stubs.php
-        - tests/phpstan/attribute-box-stub.php
+        - tests/phpstan/generated/box-stub.php
+        - tests/phpstan/generated/attributebox-stub.php
     treatPhpDocTypesAsCertain: false

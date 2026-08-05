@@ -67,7 +67,13 @@ needs a reason, not a refactor. Each is explained in full in the README.
     is at parity. Do not "explain" this away in docs; if you fix it, fix it in z-engine and
     re-run `composer bench`. See docs/design.md §4.
 
-12. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
+12. **The committed PHPStan stubs are generated, not written.** `tests/phpstan/generated/` is
+    the output of `composer stubs:generate`, and `composer stubs:check` fails CI on any diff.
+    Editing one by hand works until the next run silently throws the edit away. The project
+    analyses itself with its own `extension.neon` for the same reason: a rule that crashes or a
+    generator that drifts fails here rather than in somebody's project.
+
+13. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
     should happen. Keeping the dependency in one place is what makes it possible to say exactly
     when engine state is touched.
 

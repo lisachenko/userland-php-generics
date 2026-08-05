@@ -56,7 +56,8 @@
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "test:analysis": "phpunit --testsuite analysis",
-        "stubs:generate": "php bin/generics-stubs"
+        "stubs:generate": "php bin/generics-stubs --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox'",
+        "stubs:check": "php bin/generics-stubs --check --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox'"
     },
     "scripts-descriptions": {
         "test": "Run the test suite (destructive internal group excluded)",
@@ -67,7 +68,8 @@
         "cs:check": "Check coding standards without fixing",
         "cs:fix": "Fix coding standards",
         "test:analysis": "Run the PHPStan extension tests, which need no engine",
-        "stubs:generate": "Regenerate the PHPStan stubs for placeholder-form templates"
+        "stubs:generate": "Regenerate the committed PHPStan stubs for the placeholder-form fixtures",
+        "stubs:check": "Fail if the committed PHPStan stubs no longer match the generator"
     },
     "config": {
         "sort-packages": true,

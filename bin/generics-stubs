@@ -1,0 +1,114 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Userland PHP Generics
+ *
+ * @copyright Copyright 2026, Lisachenko Alexander <lisachenko.it@gmail.com>
+ *
+ * This source file is subject to the license that is bundled
+ * with this source code in the file LICENSE.
+ *
+ */
+declare(strict_types=1);
+
+use Lisachenko\Generics\Exception\GenericsException;
+use Lisachenko\Generics\StubGenerator\StubGenerator;
+use Lisachenko\Generics\StubGenerator\StubWriter;
+
+foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $candidate) {
+    if (is_file($candidate)) {
+        require $candidate;
+
+        break;
+    }
+}
+
+$options = getopt('', ['out:', 'check', 'help']);
+$classes = array_values(array_filter(
+    array_slice($argv, 1),
+    static fn (string $argument): bool => !str_starts_with($argument, '--'),
+));
+
+if (isset($options['help']) || $classes === []) {
+    fwrite(STDOUT, <<<'USAGE'
+        Generates the PHPStan stubs a placeholder-form template needs.
+
+        Usage:
+          generics-stubs [--out=DIR] [--check] Template [Template...]
+
+        Options:
+          --out=DIR  Where to write (default: var/generics-stubs)
+          --check    Write nothing; exit 1 if any stub is out of date
+
+        Point phpstan.neon at the result:
+
+          parameters:
+              stubFiles:
+                  - var/generics-stubs/box-stub.php
+              scanFiles:
+                  - var/generics-stubs/placeholders.php
+
+        Each template gets its own file, because PHPStan indexes only the first class
+        declaration in a stub and ignores the rest.
+
+        USAGE);
+
+    exit($classes === [] && !isset($options['help']) ? 1 : 0);
+}
+
+$directory = is_string($options['out'] ?? null) ? $options['out'] : getcwd() . '/var/generics-stubs';
+$generator = new StubGenerator();
+
+$stubs = [];
+foreach ($classes as $className) {
+    if (!class_exists($className)) {
+        fwrite(STDERR, sprintf("Class %s could not be autoloaded.\n", $className));
+
+        exit(1);
+    }
+    try {
+        $stubs[] = $generator->generate($className);
+    } catch (GenericsException $exception) {
+        // The generator reads templates through TemplateParser, so anything it refuses here
+        // the runtime would refuse too - reporting it now is strictly earlier
+        fwrite(STDERR, sprintf("%s: %s\n", $className, $exception->getMessage()));
+
+        exit(1);
+    }
+}
+
+if (isset($options['check'])) {
+    // Render into a scratch directory and compare, so --check never touches the real output.
+    // The writer's own "changed" list is meaningless here - everything is new in an empty
+    // directory - so only the comparison against $directory counts.
+    $scratch = sys_get_temp_dir() . '/generics-stubs-check-' . getmypid();
+    (new StubWriter($scratch))->write($stubs);
+
+    $changed = [];
+    foreach (glob($scratch . '/*.php') ?: [] as $file) {
+        $target = $directory . '/' . basename($file);
+        if (!is_file($target) || file_get_contents($target) !== file_get_contents($file)) {
+            $changed[] = basename($file);
+        }
+        unlink($file);
+    }
+    @rmdir($scratch);
+    if ($changed !== []) {
+        fwrite(STDERR, sprintf(
+            "These stubs are out of date: %s\nRun: composer stubs:generate\n",
+            implode(', ', $changed),
+        ));
+
+        exit(1);
+    }
+
+    fwrite(STDOUT, "Stubs are up to date.\n");
+
+    exit(0);
+}
+
+$changed = (new StubWriter($directory))->write($stubs);
+fwrite(STDOUT, $changed === []
+    ? sprintf("%d stub(s) already up to date in %s\n", count($stubs), $directory)
+    : sprintf("Wrote %s to %s\n", implode(', ', $changed), $directory));
