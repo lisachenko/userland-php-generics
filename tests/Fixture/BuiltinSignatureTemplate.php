@@ -18,12 +18,22 @@ use Lisachenko\Generics\Attribute\TemplateParameter;
 use Lisachenko\Generics\GenericObject;
 
 /**
- * Marks a `mixed` parameter, which the engine could never enforce
+ * Marks a `mixed` parameter - the case that needs the cached ZEND_RECV mask patched
  *
  * @template T
  */
 #[TemplateParameter('T')]
 final class BuiltinSignatureTemplate implements GenericObject
 {
-    public function set(#[Of('T')] mixed $value): void {}
+    private mixed $value = null;
+
+    public function set(#[Of('T')] mixed $value): void
+    {
+        $this->value = $value;
+    }
+
+    public function get(): mixed
+    {
+        return $this->value;
+    }
 }

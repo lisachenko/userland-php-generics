@@ -33,7 +33,7 @@ from a hand-written class, on a class that did not exist a microsecond ago.**
 - [Static analysis](#static-analysis)
 - [Long-running processes](#long-running-processes)
 - [Known limitations](#known-limitations)
-- [Design notes](#design-notes)
+- [Design notes](#design-notes) and the full [design document](docs/design.md)
 - [Contributing](#contributing)
 
 ## Why this exists
@@ -182,10 +182,10 @@ engine keys on. This form works for properties, parameters and return types.
 private mixed $value = null;
 ```
 
-This is the only way to re-type a property declared `mixed`, because `mixed` has no type name
-to match on. On a parameter or return type the attribute is still useful — it maps one
-placeholder class onto a differently-named type parameter — but the declared type there must
-still be class-like. See the next section for why.
+This is the only way to re-type a slot declared `mixed`, because `mixed` has no type name to
+match on. It works on properties, parameters and return types alike; on a slot that already
+declares a placeholder it is still useful, mapping one placeholder class onto a
+differently-named type parameter.
 
 A promoted constructor property carrying `#[Of]` produces **two** slots, the parameter and the
 property, because reflection reports the attribute on both.
@@ -226,28 +226,24 @@ written out — so the cap is a stack guard, not a cycle guard.
 
 ## What the engine actually enforces
 
-**Rewriting a type and having it enforced are not the same thing.** This is the single most
-important thing to know about the whole approach:
+Everything a template declares can be re-typed — properties, parameters and return types, whether
+they were declared as a placeholder class or as a builtin like `mixed`. Two return-type cases are
+the exception, and they are rejected rather than silently unenforced:
 
-| Slot | Declared as a class-like type | Declared as a builtin (`mixed`, `int`, …) |
-|------|-------------------------------|--------------------------------------------|
-| Property | rewritten and enforced | rewritten and enforced |
-| Parameter | rewritten and enforced | **rejected** |
-| Return type | rewritten and enforced | **rejected** |
+| Slot | Re-typable |
+|---|---|
+| Property | always |
+| Parameter | always |
+| Return type | unless the compiler emitted no check for it — a `mixed` return, or a return it already proved satisfies the declared type |
 
-A property write always consults `zend_property_info` at run time, so a property can be
-re-typed whatever it was declared as. Parameters and return values are different: for a builtin
-type the compiler resolves the check at compile time and selects a specialized `ZEND_RECV` /
-`ZEND_VERIFY_RETURN_TYPE` handler — and those opcodes are **shared with the template**, which is
-what makes monomorphization cheap in the first place. Rewriting such a declaration changes what
-reflection reports and changes nothing about what the engine enforces.
+The mechanics behind that are worth knowing if you are extending this, because **rewriting a type
+and having it enforced are not the same thing**: a property write consults `zend_property_info`, a
+return value is checked by an opline that reads `arg_info`, and a plain parameter is checked
+against a mask the compiler **cached into the `ZEND_RECV` opline** — which is why a parameter also
+needs that cached mask patched, and why doing so means un-sharing the method's opcode array.
 
-Rather than hand back a class that looks specialized and silently stops checking, both this
-package and z-engine reject those cases with an exception that names the reason.
-
-This is also the reason there is no compile-time AST-rewriting mode: `zend_ast_process` does not
-fire on an opcache cache hit, so under any normal production configuration the rewrite would
-never happen and the specialization would silently carry no types at all.
+[`docs/design.md`](docs/design.md) covers all of it: how each check is reached, what the compiler
+elides and why, and the relocation rules that make copying an opcode array safe.
 
 ## Identity: sibling, not subclass
 
@@ -317,7 +313,8 @@ registration lives until the request (or worker) ends. Nothing survives shutdown
 | **Sibling, not subclass** — `$box instanceof Box` is `false` | the copy shares the template's parent and interfaces, it does not extend it | type-hint an interface or abstract base; both are preserved |
 | **`self::class` / `__CLASS__` name the template** | the compiler folded them into opcodes the copy shares | use `static::class` |
 | **`array<T>` / `iterable<T>` element types are not enforced** | `zend_type` has no parametric array type; only the top-level declaration is checked | the doc tag still carries it, so PHPStan enforces it statically — the engine does not. This is the most likely source of false confidence |
-| **Builtin-typed parameters and return types cannot be re-typed** | the check was compiled into shared opcodes | declare the slot with a placeholder type; properties have no such restriction |
+| **A builtin *parameter* cannot be re-typed when the body is opcache-shared** | it needs the opcodes un-shared, and an `IS_CONST` operand only reaches 2GB | use a placeholder type for that parameter; everything else is unaffected |
+| **A return type with an unguarded return path cannot be re-typed** | the compiler emitted no check there — a `mixed` return, or one it proved valid | give the method a non-`mixed` return type and a non-constant return; rejected loudly, never silently unenforced |
 | **Union and intersection type arguments** | no `zend_type` can hold them without building a type list | rejected loudly at resolution time |
 | **Nullable type arguments** | substitution preserves the template's nullability and cannot add it | declare the slot as `?T` |
 | **Request-scoped** | class entries are request memory | specialize at worker boot; not supported during preload |
@@ -344,10 +341,9 @@ under opcache is worse than none.
 **Doc-comment-driven templates.** Reading `@template` at runtime breaks under
 `opcache.save_comments=0`. Attributes are the runtime source of truth; a CI job enforces it.
 
-**Making the attribute form work for `mixed` parameters.** See
-[what the engine actually enforces](#what-the-engine-actually-enforces) — it cannot be made to
-work without recompiling the method bodies, which is precisely the cost this whole approach
-exists to avoid.
+**Recompiling method bodies.** It would handle even the elided-check cases, correctly and by
+construction — but at the cost of a real compile per specialization and the loss of body sharing,
+which works directly against the memory result this project exists to measure.
 
 ## Contributing
 

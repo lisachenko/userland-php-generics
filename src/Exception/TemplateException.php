@@ -95,23 +95,6 @@ final class TemplateException extends LogicException implements GenericsExceptio
         ));
     }
 
-    public static function builtinSignatureSlot(
-        string $className,
-        string $slotDescription,
-        string $declaredType,
-    ): self {
-        return new self(sprintf(
-            'Slot %s of generic template %s is marked with an attribute but is declared as the builtin '
-            . 'type "%s". The engine compiles the check for a builtin parameter or return type into '
-            . 'opcodes that every specialization shares with its template, so substituting it would be '
-            . 'reported by reflection and never enforced. Declare the slot with a placeholder type - '
-            . 'attribute-marked *properties* have no such restriction. See docs/limitations.md.',
-            $slotDescription,
-            $className,
-            $declaredType,
-        ));
-    }
-
     public static function untypedSlot(string $className, string $slotDescription): self
     {
         return new self(sprintf(

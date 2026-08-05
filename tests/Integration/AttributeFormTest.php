@@ -22,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionProperty;
 use TypeError;
+use ZEngine\Reflection\ReflectionMethod as EngineMethod;
 
 /**
  * Covers the attribute form, where slots announce their type parameter with #[Of]/#[OfReturn]
@@ -70,16 +71,34 @@ final class AttributeFormTest extends TestCase
     }
 
     /**
-     * The engine resolves the check for a builtin parameter at compile time and bakes it into
-     * opcodes every specialization shares with its template, so substituting one would be
-     * visible to reflection and never enforced. That is rejected at parse time.
+     * A `mixed` parameter is the case the attribute form exists for, and it now reaches all the
+     * way down: z-engine un-shares the method's opcode array and patches the type mask ZEND_RECV
+     * caches in the opline, which is what the engine actually tests.
      */
-    public function testMarkingABuiltinTypedParameterIsRejected(): void
+    public function testAMixedParameterIsRetypedAndEnforced(): void
     {
-        $this->expectException(TemplateException::class);
-        $this->expectExceptionMessage('opcodes that every specialization shares');
+        // A `mixed` parameter is the one slot that needs the method's opcodes un-shared, and an
+        // IS_CONST operand can only reach 2GB - so a body living in opcache shared memory is out
+        // of range. Documented in docs/design.md; nothing else in the package is affected.
+        if ((new EngineMethod(BuiltinSignatureTemplate::class, 'set'))->isImmutable()) {
+            self::markTestSkipped('The template body is opcache-shared, which puts its literals out of 32-bit reach');
+        }
 
-        Generic::specialize(BuiltinSignatureTemplate::class, 'int');
+        $specialized = Generic::specialize(BuiltinSignatureTemplate::class, 'int');
+
+        // Same surface as the template, with `int` where the attribute marked `mixed`
+        /** @var BuiltinSignatureTemplate<int> $instance */
+        $instance = new $specialized();
+
+        self::assertSame('int', (string) (new ReflectionMethod($specialized, 'set'))->getParameters()[0]->getType());
+
+        $instance->set(42);
+
+        // The template shares no writable opcode with the copy
+        (new BuiltinSignatureTemplate())->set('anything at all');
+
+        $this->expectException(TypeError::class);
+        $instance->set('not an int');
     }
 
     public function testMarkingAnUndeclaredTypeParameterIsRejected(): void

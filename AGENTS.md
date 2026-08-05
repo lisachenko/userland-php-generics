@@ -14,12 +14,17 @@ needs a reason, not a refactor. Each is explained in full in the README.
    truth.** `opcache.save_comments=0` makes `doc_comment` NULL, so nothing on the runtime path
    may read one. The `tests-opcache` CI job enforces this permanently.
 
-2. **Builtin-typed parameters and return types are rejected, not substituted.** The engine
-   resolves their check at compile time into opcodes every specialization shares with its
-   template, so a rewrite would show in reflection and never be enforced. Properties are
-   different — a property write always consults `zend_property_info` — and are allowed for any
-   declared type. If you find yourself "fixing" this rejection, you are about to ship a class
-   that silently stops checking.
+   *(Items here are revised when measurement says so — item 2 replaced a broader claim that
+   builtin signatures could never be enforced, which turned out to be true of only two cases.)*
+
+2. **Know where each check lives before changing a substitution path.** A property write consults
+   `zend_property_info`; a return value is checked by a `ZEND_VERIFY_RETURN_TYPE` opline reading
+   `arg_info`; a plain parameter is checked against a mask the compiler **cached into the
+   `ZEND_RECV` opline**, so re-typing one means patching that cache and therefore un-sharing the
+   method's opcode array. The two rejections that remain are the return types the compiler
+   emitted no check for at all (`mixed`, or a provably valid return) — there is no opline to
+   make those take effect. If you find yourself relaxing *those*, you are about to ship a class
+   that silently stops checking. See docs/design.md.
 
 3. **No compile-time AST rewriting.** `zend_ast_process` does not fire on an opcache cache hit,
    so under any normal production configuration the rewrite would never happen and the
