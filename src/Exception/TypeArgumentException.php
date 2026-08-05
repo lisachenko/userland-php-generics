@@ -33,15 +33,6 @@ final class TypeArgumentException extends InvalidArgumentException implements Ge
         ));
     }
 
-    public static function emptyArgument(string $className, int $position): self
-    {
-        return new self(sprintf(
-            'Type argument #%d for generic template %s is an empty string.',
-            $position,
-            $className,
-        ));
-    }
-
     public static function unknownType(string $className, string $typeName): self
     {
         return new self(sprintf(
@@ -61,4 +52,62 @@ final class TypeArgumentException extends InvalidArgumentException implements Ge
             $reason,
         ));
     }
+
+    public static function malformed(string $className, string $argument, string $reason): self
+    {
+        return new self(sprintf(
+            'Type argument "%s" for generic template %s cannot be parsed because %s.',
+            $argument,
+            $className,
+            $reason,
+        ));
+    }
+
+    public static function nullabilityNotExpressible(string $className, string $argument): self
+    {
+        return new self(sprintf(
+            'Type argument "%s" for generic template %s cannot be nullable. Substitution preserves '
+            . 'the nullability the template itself declared and cannot add it, so declare the slot '
+            . 'as `?T` in %s instead of asking for a nullable argument.',
+            $argument,
+            $className,
+            $className,
+        ));
+    }
+
+    public static function unknownNestedTemplate(string $className, string $nestedName): self
+    {
+        return new self(sprintf(
+            'Type argument for generic template %s refers to %s as a nested generic, but no such '
+            . 'class exists.',
+            $className,
+            $nestedName,
+        ));
+    }
+
+    public static function boundViolation(
+        string $className,
+        string $parameterName,
+        string $bound,
+        string $argument,
+    ): self {
+        return new self(sprintf(
+            'Type parameter %s of generic template %s is bound to %s, which "%s" does not satisfy.',
+            $parameterName,
+            $className,
+            $bound,
+            $argument,
+        ));
+    }
+
+    public static function recursionLimit(string $className, int $limit, string $chain): self
+    {
+        return new self(sprintf(
+            'Nested specialization of generic template %s exceeded the depth limit of %d: %s',
+            $className,
+            $limit,
+            $chain,
+        ));
+    }
+
 }
