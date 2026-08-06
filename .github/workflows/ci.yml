@@ -170,9 +170,16 @@ jobs:
           docker run --rm -v "$PWD:/app" -w /app generics-php:debug \
             vendor/bin/phpunit --group internal --process-isolation --log-junit /app/var/internal.xml
           count=$(grep -o 'tests="[0-9]*"' var/internal.xml | head -1 | grep -o '[0-9]*')
-          echo "internal group ran ${count:-0} test(s)"
+          skipped=$(grep -o 'skipped="[0-9]*"' var/internal.xml | head -1 | grep -o '[0-9]*')
+          echo "internal group: ${count:-0} test(s), ${skipped:-0} skipped"
           [ "${count:-0}" -gt 0 ] \
             || { echo "::error::The internal group is empty - composer test:internal verifies nothing"; exit 1; }
+          # A skip is the other way this job goes green having tested nothing: RequiresEngine
+          # skips the whole class when Core::init() did not run, and PHPUnit still reports those
+          # as tests. The image bakes ffi.enable=1 precisely so this cannot happen - if it ever
+          # does, the cause is the container, not the test.
+          [ "${skipped:-0}" -eq 0 ] \
+            || { echo "::error::${skipped} destructive test(s) skipped - the debug container cannot reach the engine"; exit 1; }
 
   static-analysis:
     name: PHPStan (level max)
