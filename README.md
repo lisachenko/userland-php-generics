@@ -31,8 +31,9 @@ from a hand-written class, on a class that did not exist a microsecond ago.**
 - [What the engine actually enforces](#what-the-engine-actually-enforces)
 - [Identity: sibling, not subclass](#identity-sibling-not-subclass)
 - [Static analysis](#static-analysis) and the [extension guide](docs/static-analysis.md)
-- [Long-running processes](#long-running-processes)
-- [Known limitations](#known-limitations)
+- [Long-running processes](#long-running-processes) and the [deployment guide](docs/long-running.md)
+- [Known limitations](#known-limitations), in full in [docs/limitations.md](docs/limitations.md)
+- [A runnable example](#a-runnable-example)
 - [What it costs](#what-it-costs) and the full [benchmark report](docs/benchmarks.md)
 - [Design notes](#design-notes) and the full [design document](docs/design.md)
 - [Contributing](#contributing)
@@ -136,6 +137,74 @@ Specializations live in the engine's class table for the rest of the request, an
 name that is already registered — by another factory instance, by a warm-up at worker boot, or
 after the cache was cleared with `forget()` — is recorded and returned instead of being built a
 second time.
+
+Beside the cache sits a **registry** of what each specialization was made from, written when the
+class is minted rather than recovered from the name afterwards:
+
+```php
+Generic::registry()->bindingFor($intBox::class)?->typeArguments;   // ['int']
+```
+
+`Generic::reset()` clears both without touching the class table — the classes stay registered
+because they are engine state, so a later lookup adopts them again.
+
+### Warm-up
+
+Minting is a start-up cost, not a request cost: it runs to roughly a hundred microseconds plus
+another hundred per own method, while asking for one that already exists is about two.
+`warmUp()` is the shape that difference implies.
+
+```php
+Generic::warmUp([
+    [Box::class, ['int']],
+    [Box::class, [User::class]],
+]);
+```
+
+See [Long-running processes](#long-running-processes) for the budget and
+[`docs/long-running.md`](docs/long-running.md) for the full account.
+
+### An identifier-safe name, at a price
+
+Some tooling insists on class names that are legal PHP identifiers.
+`IdentifierSafeNameMangler` produces `App\Generic\Box_int` for those cases:
+
+```php
+$factory = new GenericFactory(mangler: new IdentifierSafeNameMangler());
+```
+
+It is opt-in because it gives up the property that makes the default name safe. `App\Generic\Box_int`
+is a name somebody could declare by hand, and flattening `\` into the same `_` that separates
+arguments means the name can no longer always be read backwards. The registry is what keeps
+`templateOf()` and `bindingOf()` exact under it; anything this process did not mint gets the
+mangler's best effort.
+
+### Autoloading, if you want it — and only with that mangler
+
+`unserialize()`, `var_export()` output and string-keyed DI containers all name a class and expect
+it to exist. An opt-in autoloader builds it on demand:
+
+```php
+use Lisachenko\Generics\Runtime\GenericAutoloader;
+
+GenericAutoloader::register($factory);   // never installed for you
+
+class_exists('App\Generic\Box_int');     // true - minted on the spot
+```
+
+**It cannot work with the default angle-bracket names, and that is PHP's rule rather than
+ours.** The engine consults the autoload stack only for names that are *valid class names*, so a
+name containing `<` never reaches any autoloader at all:
+
+```php
+spl_autoload_register(fn ($name) => print $name);
+class_exists('App\Box<int>');            // prints nothing whatsoever
+```
+
+Which is a useful fact in its own right — an angle-bracket name can never be resolved behind your
+back — but it does mean the autoloader is inert unless you also opt into the identifier-safe
+mangler above. It is never registered automatically either way, because installing a global
+autoloader is a side effect a library should not impose.
 
 ## Requirements and installation
 
@@ -350,31 +419,46 @@ and it is written up in [`docs/design.md`](docs/design.md#4-what-a-specializatio
 Specialization is **request-scoped**: the class entry and its tables are request memory, and the
 registration lives until the request (or worker) ends. Nothing survives shutdown.
 
-- In a worker runtime (RoadRunner, Swoole, FrankenPHP) specialize once at boot, exactly as you
-  would with any other class-surgery API.
-- In FPM you pay the warm-up per request; budget it.
+- In a worker runtime (RoadRunner, Swoole, FrankenPHP) `Generic::warmUp()` a written-down list at
+  boot; every request after that gets a ~2 us cache hit.
+- In FPM you pay the warm-up per request; budget it against the measured cost.
 - **Specializing during `opcache.preload` is not supported** — the preload request's allocations
-  are released at its end.
+  are released at its end. Preloading the *templates* is fine and useful, which is what the
+  shipped [`preload.php`](preload.php) is for.
+- Never specialize on a type argument that came from request input: each distinct argument mints
+  a class that lives as long as the worker does.
+
+[`docs/long-running.md`](docs/long-running.md) has the per-request budget, the worker and FPM
+recipes and a deployment checklist.
+
+## A runnable example
+
+```bash
+php -d ffi.enable=1 -d opcache.jit=off examples/collection.php
+```
+
+[`examples/collection.php`](examples/collection.php) specializes a collection template, prints
+`get_class()`, shows the engine's own `TypeError` rejecting the wrong element type, and shows the
+template left exactly as it was. It is covered by a test that runs it, so it cannot quietly stop
+working.
 
 ## Known limitations
 
-| Limitation | Why | What to do instead |
-|---|---|---|
-| **Sibling, not subclass** — `$box instanceof Box` is `false` | the copy shares the template's parent and interfaces, it does not extend it | type-hint an interface or abstract base; both are preserved |
-| **`self::class` / `__CLASS__` name the template** | the compiler folded them into opcodes the copy shares | use `static::class` |
-| **`array<T>` / `iterable<T>` element types are not enforced** | `zend_type` has no parametric array type; only the top-level declaration is checked | the doc tag still carries it, so PHPStan enforces it statically — the engine does not. This is the most likely source of false confidence |
-| **A builtin *parameter* cannot be re-typed when the body is opcache-shared** | it needs the opcodes un-shared, and an `IS_CONST` operand only reaches 2GB | use a placeholder type for that parameter; everything else is unaffected. Tracked as [z-engine#131](https://github.com/lisachenko/z-engine/issues/131) |
-| **A return type with an unguarded return path cannot be re-typed** | the compiler emitted no check there — a `mixed` return, or one it proved valid | give the method a non-`mixed` return type and a non-constant return; rejected loudly, never silently unenforced |
-| **Union and intersection type arguments** | no `zend_type` can hold them without building a type list | rejected loudly at resolution time |
-| **Nullable type arguments** | substitution preserves the template's nullability and cannot add it | declare the slot as `?T` |
-| **Request-scoped** | class entries are request memory | specialize at worker boot; not supported during preload |
-| **Templates must be plain userland classes** | the specializer rejects interfaces, traits, enums, internal classes, internal ancestors, unlinked classes and property hooks | generic *interfaces* stay non-generic at runtime, which is the recommended identity pattern anyway |
-| **A type parameter declared by an ancestor cannot be substituted** | inherited `property_info` / `arg_info` are shared with the declaring class | declare generic slots on the template itself |
-| **Private property names keep the template's mangled prefix** | the mangled name string is shared | cosmetic only; slot access is offset-based and correct |
-| **Specialized names are unparseable by PHP** | deliberate — it is what guarantees no collision | use `Box::of()`; the name is still readable everywhere it is printed |
-| **PHP 8.4 NTS x64, `ffi.enable=1`, `opcache.jit=off`** | engine struct layouts are version- and build-specific | mirror z-engine's branch-per-minor model |
-| **Generic methods and generic functions** | no engine primitive for method-level specialization | out of scope |
-| **A class-typed property write costs more than 2x a compiled one** | its type name looks resolved per write rather than once; the cost tracks the name's length | prefer a builtin type argument where the choice exists. Measured in [docs/benchmarks.md](docs/benchmarks.md) rather than assumed away, and tracked as [z-engine#130](https://github.com/lisachenko/z-engine/issues/130) |
+Every one of them, with its cause and its mitigation, is in
+[**`docs/limitations.md`**](docs/limitations.md). Most are rejected loudly at specialization
+time, which makes them easy to live with. Three are not, and are worth knowing before you read
+anything else:
+
+- **`array<T>` and `iterable<T>` element types are not enforced.** `zend_type` has no parametric
+  array type, so a slot declared `array` is checked for being an array and nothing more. The doc
+  tag still carries the element type and PHPStan still enforces it — but statically only. This is
+  the one place where less is checked at run time than it looks, and therefore the most likely
+  source of false confidence in the package.
+- **A specialization is a sibling, not a subclass.** `$box instanceof Box` is `false` and cannot
+  be made true. Type-hint an interface or an abstract base; both are preserved.
+- **Everything is request-scoped.** Class entries are request memory. Specialize at worker boot —
+  and never during `opcache.preload`, whose allocations are released at its end. See
+  [`docs/long-running.md`](docs/long-running.md).
 
 ## Design notes
 
