@@ -53,6 +53,15 @@ jobs:
       - name: Run test suite without doc comments
         run: composer test
 
+      # PreloadTest skips itself when opcache is absent, and this is the one job where opcache
+      # is guaranteed present - so a silent skip here would mean preload.php goes unexecuted
+      # everywhere. Asserting the extension is loaded first makes that impossible.
+      - name: preload.php must actually be booted
+        run: |
+          php -r 'exit(extension_loaded("Zend OPcache") ? 0 : 1);' \
+            || { echo "::error::Zend OPcache is not loaded - the preload test would silently skip"; exit 1; }
+          composer test:preload
+
   benchmarks-smoke:
     name: Benchmarks (smoke)
     runs-on: ubuntu-latest
@@ -78,7 +87,7 @@ jobs:
     name: PHPStan extension tests (FFI disabled)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ffi.enable=0 is the assertion, not a convenience: the analysis layer has to work in
       # CI and in an IDE, neither of which can be assumed to have a usable FFI. Pinning it off
@@ -91,7 +100,7 @@ jobs:
           ini-values: ffi.enable=0
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       - name: Run the analysis suite
         run: composer test:analysis
@@ -100,7 +109,7 @@ jobs:
     name: Generated stubs are up to date
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -110,13 +119,73 @@ jobs:
           ini-values: ffi.enable=1
           coverage: none
 
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       # The project analyses itself with stubs its own generator produced. Regenerating here
       # makes a generator change that stops matching them a failing build rather than a stale
       # file nobody re-runs.
       - name: Regenerate and compare
         run: composer stubs:check
+
+  tests-internal-debug:
+    name: Internal group (debug build)
+    runs-on: ubuntu-latest
+    # The destructive eviction tests run destroy_zend_class() over a copied class entry while
+    # its template is still live. On a release build a copy that released a block the template
+    # still owns usually survives the test and crashes somewhere unrelated later; on a
+    # --enable-debug build it is an assertion failure at the point of the mistake. There is no
+    # official debug PHP image, so one is built here from the official image's own source.
+    #
+    # report_memleaks is off - see phpunit.xml.dist, which is the only place that can set it,
+    # since PHPUnit propagates its <ini> block to process-isolated children and overrides any
+    # -d given here. The short version: ClassSpecializer defers some frees to request end by
+    # design, and the leak reporter counts exactly those. The Zend assertions, which are what
+    # catch a copy freeing a block its template still owns, stay on.
+    steps:
+      - uses: actions/checkout@v7
+
+      # Composer runs on a release PHP on the host; the debug container only needs to run the
+      # already-installed PHPUnit, which is plain PHP.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: ffi
+          coverage: none
+
+      - uses: ramsey/composer-install@v4
+
+      - name: Build the debug PHP image
+        run: |
+          docker build \
+            -f tools/docker/php-debug.Dockerfile \
+            --build-arg "PHP_VERSION=${PHP_MINOR}" \
+            -t generics-php:debug .
+
+      - name: Confirm the image really is a debug build
+        run: |
+          docker run --rm generics-php:debug php -r 'exit(PHP_DEBUG ? 0 : 1);' \
+            || { echo "::error::PHP_DEBUG is not set - the leak gate would be inert"; exit 1; }
+
+      # The group being empty is the bug this job exists to prevent coming back: PHPUnit exits
+      # non-zero with "No tests executed!", which reads like an ordinary failure. Counting the
+      # tests makes the real cause name itself.
+      - name: Run the destructive group with process isolation
+        run: |
+          mkdir -p var
+          docker run --rm -v "$PWD:/app" -w /app generics-php:debug \
+            vendor/bin/phpunit --group internal --process-isolation --log-junit /app/var/internal.xml
+          count=$(grep -o 'tests="[0-9]*"' var/internal.xml | head -1 | grep -o '[0-9]*')
+          skipped=$(grep -o 'skipped="[0-9]*"' var/internal.xml | head -1 | grep -o '[0-9]*')
+          echo "internal group: ${count:-0} test(s), ${skipped:-0} skipped"
+          [ "${count:-0}" -gt 0 ] \
+            || { echo "::error::The internal group is empty - composer test:internal verifies nothing"; exit 1; }
+          # A skip is the other way this job goes green having tested nothing: RequiresEngine
+          # skips the whole class when Core::init() did not run, and PHPUnit still reports those
+          # as tests. The image bakes ffi.enable=1 precisely so this cannot happen - if it ever
+          # does, the cause is the container, not the test.
+          [ "${skipped:-0}" -eq 0 ] \
+            || { echo "::error::${skipped} destructive test(s) skipped - the debug container cannot reach the engine"; exit 1; }
 
   static-analysis:
     name: PHPStan (level max)

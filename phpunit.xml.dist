@@ -44,7 +44,21 @@
     <php>
         <!-- Verify FFI struct layouts against the C ground truth on every boot -->
         <env name="ZENGINE_STRICT_LAYOUT_CHECK" value="1"/>
-        <ini name="report_memleaks" value="1"/>
+        <!--
+          report_memleaks is deliberately OFF, and this is the only place it can be set:
+          PHPUnit propagates this block to process-isolated children, so a `-d` on the command
+          line is silently overridden by it.
+
+          Copied from z-engine, where it is right and where it gates two dozen scenarios. It is
+          wrong here. Almost every test in this package specializes a class, and ClassSpecializer
+          documents - in four places - that several of the blocks it allocates through FFI are
+          "reclaimed by the request allocator at request end" rather than freed explicitly. Those
+          are exactly what the leak reporter counts, so on a debug build this setting fails every
+          specializing test with 7-18 "leaks" that are the design working as written. z-engine
+          reached the same conclusion first: ClassSpecializerTest is deliberately not in its
+          leak-gated group.
+        -->
+        <ini name="report_memleaks" value="0"/>
     </php>
     <source>
         <include>

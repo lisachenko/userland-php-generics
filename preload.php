@@ -25,9 +25,11 @@ use ZEngine\Core;
  * **Specializing during preload is not supported, and this file must never do it.**
  *
  * The preload request is a request. Its allocations are released when it ends, so a class entry
- * built here does not survive into the requests that follow - and nothing reports that, because
- * nothing failed. `Box::of('int')` would appear to succeed here and the class would simply not
- * be there afterwards.
+ * built here cannot survive into the requests that follow. Measured on PHP 8.4, it does not
+ * merely vanish: `Generic::warmUp()` inside a preload script **segfaults the process**, so the
+ * server does not start at all. That is the kinder of the two possible outcomes - loud rather
+ * than silent - but either way there is nothing to gain by trying. PreloadTest asserts that a
+ * specialization made here never reaches the following request, however it fails.
  *
  * What preloading *is* good for is the code: z-engine's FFI definitions, this package's classes
  * and - the useful part for an application - your own template classes. Preloaded classes are
@@ -46,14 +48,30 @@ require_once __DIR__ . '/vendor/autoload.php';
 Core::preload();
 
 /*
- * This package's own classes. `opcache_compile_file()` rather than `class_exists()`: nothing here
- * needs to be *linked* during preload, only compiled and shared.
+ * This package's **runtime** classes. `opcache_compile_file()` rather than `class_exists()`:
+ * nothing here needs to be *linked* during preload, only compiled and shared.
+ *
+ * The tooling directories are deliberately excluded. `src/PHPStan/` implements PHPStan's own
+ * interfaces, which exist only when phpstan is installed - and it is a dev dependency living
+ * inside a phar, so on a production install those classes cannot link at all. Preloading them
+ * printed ten `Can't preload unlinked class` warnings into the server log at every start, which
+ * is what PreloadTest caught. `src/StubGenerator/` links fine but is reached only from the
+ * `generics-stubs` CLI, which never sees this preload.
+ *
+ * The rule underneath: preload the runtime, not the tooling.
  */
+$toolingDirectories = ['PHPStan', 'StubGenerator'];
+
 foreach (new RegexIterator(
     new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/src')),
     '/\.php$/',
 ) as $file) {
     /** @var SplFileInfo $file */
+    $relative = substr($file->getPathname(), strlen(__DIR__ . '/src/'));
+    if (in_array(strtok($relative, DIRECTORY_SEPARATOR), $toolingDirectories, true)) {
+        continue;
+    }
+
     opcache_compile_file($file->getPathname());
 }
 
