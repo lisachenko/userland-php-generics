@@ -169,7 +169,8 @@ src/Attribute/    the template and slot attributes users write
 src/Template/     parsing a template class into a TemplateDefinition
 src/Type/         type-argument grammar, validation and resolution
 src/Naming/       specialized class-name mangling and parsing
-src/Runtime/      the cache, the engine-capability probe and the monomorphizer
+src/Runtime/      the cache, the registry, the opt-in autoloader, the engine-capability probe
+                  and the monomorphizer
 src/Strategy/     the substitution strategies (placeholder and attribute forms) and their plan
 src/Exception/    the exception hierarchy
 src/PHPStan/      the shipped static-analysis extension: inference and rules
@@ -177,6 +178,17 @@ src/StubGenerator/ renders the PHPStan stubs a placeholder-form template needs
 bin/generics-stubs the CLI over StubGenerator; --check is what CI runs
 extension.neon    wires the extension up, auto-loaded by phpstan/extension-installer
 benchmarks/       the monomorphization cost harness
-docs/             design.md, static-analysis.md and the generated benchmarks.md
+examples/         runnable, and covered by a test that runs them
+preload.php       opcache.preload entry point - templates yes, specializations never
+docs/             design.md, limitations.md, long-running.md, static-analysis.md
+                  and the generated benchmarks.md
 tests/phpstan/generated/  committed generator output - regenerate, never edit
 ```
+
+## 11. Two identity answers, in that order
+
+`isSpecialization()`, `templateOf()` and `bindingOf()` ask `SpecializationRegistry` first and fall
+back to `NameMangler::parse()`. Keep both. The registry is exact but only knows what this process
+minted; parsing covers everything else, and dropping it would break the documented promise that
+these helpers work for an instance another factory made. Dropping the registry would instead make
+`IdentifierSafeNameMangler` - whose `parse()` is lossy by construction - silently wrong.
