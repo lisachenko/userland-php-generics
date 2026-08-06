@@ -226,12 +226,22 @@ and interfaces rather than extending it, so `$box instanceof Box` is `false`. Th
 model and cannot be changed. `GenericObject` is a required marker precisely so that one relation
 always survives; the documented pattern is to type-hint an interface or an abstract base.
 
-Because `instanceof` cannot answer the question, the name has to. Every mangler is required to
-run backwards — `parse(mangle($t, $a))` must give back `$t` and `$a` — and
-`Generic::isSpecialization()`, `templateOf()` and `bindingOf()` are built on that, which is also
-why they work for an instance minted by a different factory. The shipped
-`InstanceofGenericTemplateRule` reports the `instanceof` and points at them, turning the most
-surprising thing in this design into a static error rather than a discovery.
+Because `instanceof` cannot answer the question, something else has to, and there are two
+answers rather than one:
+
+- **`SpecializationRegistry`** — written when the class is minted, so it is exact by
+  construction. `Generic::isSpecialization()`, `templateOf()` and `bindingOf()` consult it first.
+- **The name itself.** Every mangler is required to run backwards —
+  `parse(mangle($t, $a))` must give back `$t` and `$a` — and that is the fallback, which is what
+  keeps the three helpers working for an instance minted by a *different* factory or process.
+
+Keeping both is what makes an alternative mangler possible at all.
+`IdentifierSafeNameMangler` buys a legal PHP identifier by flattening `\` into the same `_` that
+separates arguments, which makes its `parse()` lossy; with the registry in front, the loss is
+confined to names this process did not create.
+
+The shipped `InstanceofGenericTemplateRule` reports the `instanceof` and points at the helpers,
+turning the most surprising thing in this design into a static error rather than a discovery.
 
 ## 8. Alternatives considered and rejected
 

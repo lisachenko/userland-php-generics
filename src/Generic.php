@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics;
 
+use Lisachenko\Generics\Runtime\SpecializationRegistry;
 use ZEngine\Core;
 
 /**
@@ -92,6 +93,44 @@ final class Generic
     public static function bindingOf(object|string $value): ?array
     {
         return self::factory()->bindingOf($value);
+    }
+
+    /**
+     * Materializes a known set of specializations up front, typically at worker boot
+     *
+     * Minting costs on the order of a hundred microseconds plus another hundred per own method;
+     * asking for an already-minted one costs about two. That gap is the entire argument for
+     * doing this at start-up rather than per request - see docs/long-running.md.
+     *
+     * ```php
+     * Generic::warmUp([[Box::class, ['int']], [Box::class, [User::class]]]);
+     * ```
+     *
+     * @param  list<array{0: class-string, 1: list<string>}> $specializations
+     * @return list<class-string>
+     */
+    public static function warmUp(array $specializations): array
+    {
+        return self::factory()->warmUp($specializations);
+    }
+
+    /**
+     * Forgets every memoized specialization without touching the class table
+     *
+     * The classes stay registered - they are engine state, not ours to destroy - so a later
+     * lookup adopts them again rather than building a second copy.
+     */
+    public static function reset(): void
+    {
+        self::factory()->reset();
+    }
+
+    /**
+     * The record of what each specialization in this process was made from
+     */
+    public static function registry(): SpecializationRegistry
+    {
+        return self::factory()->registry();
     }
 
     public static function factory(): GenericFactory

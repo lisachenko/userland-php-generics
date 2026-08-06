@@ -42,6 +42,12 @@ interface NameMangler
      * cannot be taken apart again cannot answer `templateOf()` or `bindingOf()`, so a mangler
      * that is not round-trippable is not usable. Implementations must satisfy
      * `parse(mangle($t, $a)) == MangledName::of($t, $a)`.
+     *
+     * `SpecializationRegistry` is the backstop, not the substitute: `GenericFactory` asks it
+     * first and reaches this method only for a name the process did not mint itself. An
+     * implementation that trades exactness away for something else - as
+     * `IdentifierSafeNameMangler` trades it for identifier safety - has to say so on itself,
+     * because that fallback path is where the trade lands.
      */
     public function parse(string $className): ?MangledName;
 }

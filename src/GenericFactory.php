@@ -20,6 +20,8 @@ use Lisachenko\Generics\Naming\NameMangler;
 use Lisachenko\Generics\Runtime\EngineCapabilities;
 use Lisachenko\Generics\Runtime\Monomorphizer;
 use Lisachenko\Generics\Runtime\SpecializationCache;
+use Lisachenko\Generics\Runtime\SpecializationRegistry;
+use Lisachenko\Generics\Runtime\TypeBinding;
 use Lisachenko\Generics\Strategy\PlaceholderNameStrategy;
 use Lisachenko\Generics\Strategy\SlotAttributeStrategy;
 use Lisachenko\Generics\Strategy\SubstitutionPlan;
@@ -71,6 +73,7 @@ final class GenericFactory implements NestedTypeResolver
         private readonly TypeArgumentResolver $arguments = new TypeArgumentResolver(),
         ?array $strategies = null,
         private readonly int $depthLimit = self::DEFAULT_DEPTH_LIMIT,
+        private readonly SpecializationRegistry $registry = new SpecializationRegistry(),
     ) {
         $this->strategies = $strategies ?? [new PlaceholderNameStrategy(), new SlotAttributeStrategy()];
     }
@@ -93,9 +96,14 @@ final class GenericFactory implements NestedTypeResolver
         $bindings = $this->resolveBindings($template, array_values($typeArguments));
         $name     = $this->mangler->mangle($templateName, array_values($bindings));
 
+        $arguments = array_values($bindings);
+
         $known = $this->cache->lookup($name);
         if ($known !== null) {
-            return $known;
+            // Also recorded on the hit path: the template and its resolved arguments are in
+            // hand right here, and a class adopted from another factory would otherwise stay
+            // unexplained in the registry forever.
+            return $this->record($templateName, $arguments, $known);
         }
 
         $plan = new SubstitutionPlan();
@@ -106,9 +114,49 @@ final class GenericFactory implements NestedTypeResolver
             throw TemplateException::slotSubstitutionUnavailable($templateName);
         }
 
-        return $this->cache->remember(
+        return $this->record($templateName, $arguments, $this->cache->remember(
             $this->monomorphizer->materialize($templateName, $name, $plan->toRequest()),
-        );
+        ));
+    }
+
+    /**
+     * Materializes a known set of specializations in one call
+     *
+     * The documented shape for worker boot. Minting is not a hot-path operation - it costs on
+     * the order of a hundred microseconds plus another hundred per own method, while asking
+     * again costs about two - so a worker that knows its type arguments should pay for them
+     * once, at start-up, rather than on the first request that happens to need one. See
+     * docs/long-running.md for the budget and docs/benchmarks.md for the numbers behind it.
+     *
+     * ```php
+     * Generic::warmUp([[Box::class, ['int']], [Box::class, [User::class]]]);
+     * ```
+     *
+     * @param  list<array{0: class-string, 1: list<string>}> $specializations
+     * @return list<class-string>                            In the order they were given
+     */
+    public function warmUp(array $specializations): array
+    {
+        $specialized = [];
+        foreach ($specializations as [$templateName, $typeArguments]) {
+            $specialized[] = $this->specialize($templateName, ...$typeArguments);
+        }
+
+        return $specialized;
+    }
+
+    /**
+     * Forgets every memoized specialization without touching the class table
+     *
+     * The classes stay registered because they are engine state rather than ours, so a later
+     * `specialize()` for the same arguments adopts the existing class instead of building a
+     * second one. Parsed template definitions are kept: they are pure reflection over a
+     * declaration that cannot change while the process runs.
+     */
+    public function reset(): void
+    {
+        $this->cache->forget();
+        $this->registry->forget();
     }
 
     /**
@@ -144,23 +192,40 @@ final class GenericFactory implements NestedTypeResolver
         return $this->cache;
     }
 
+    public function registry(): SpecializationRegistry
+    {
+        return $this->registry;
+    }
+
+    /**
+     * The mangler this factory names specializations with
+     *
+     * Exposed for `GenericAutoloader`, which has to recognise and take apart a name before it
+     * can decide whether the name is one this factory could have produced.
+     */
+    public function mangler(): NameMangler
+    {
+        return $this->mangler;
+    }
+
     /**
      * Whether the value is a specialization, optionally of one particular template
      *
      * The answer `instanceof` cannot give. A specialization is a *sibling* of its template, so
-     * `$box instanceof Box` is false and always will be; this reads the name instead, which
-     * means it also works for an instance minted by a different factory.
+     * `$box instanceof Box` is false and always will be; this asks the registry instead, and
+     * falls back to reading the name apart - which is what keeps it working for an instance
+     * minted by a different factory.
      *
      * @param class-string|null $templateName
      */
     public function isSpecialization(object|string $value, ?string $templateName = null): bool
     {
-        $parsed = $this->mangler->parse($this->classNameOf($value));
-        if ($parsed === null) {
+        $binding = $this->bindingRecordOf($this->classNameOf($value));
+        if ($binding === null) {
             return false;
         }
 
-        return $templateName === null || $parsed->templateName === $templateName;
+        return $templateName === null || $binding->templateName === $templateName;
     }
 
     /**
@@ -170,7 +235,7 @@ final class GenericFactory implements NestedTypeResolver
      */
     public function templateOf(object|string $value): ?string
     {
-        return $this->mangler->parse($this->classNameOf($value))?->templateName;
+        return $this->bindingRecordOf($this->classNameOf($value))?->templateName;
     }
 
     /**
@@ -180,7 +245,44 @@ final class GenericFactory implements NestedTypeResolver
      */
     public function bindingOf(object|string $value): ?array
     {
-        return $this->mangler->parse($this->classNameOf($value))?->typeArguments;
+        return $this->bindingRecordOf($this->classNameOf($value))?->typeArguments;
+    }
+
+    /**
+     * What is known about a specialized name: recorded first, parsed only as a fallback
+     *
+     * The registry is exact - it was written when the class was made - but it only covers this
+     * process. Parsing covers everything else, at the mangler's accuracy: for the default
+     * angle-bracket names that is exact too, and for `IdentifierSafeNameMangler` it is the
+     * best-effort that mangler documents on itself.
+     */
+    private function bindingRecordOf(string $className): ?TypeBinding
+    {
+        $recorded = $this->registry->bindingFor($className);
+        if ($recorded !== null) {
+            return $recorded;
+        }
+
+        $parsed = $this->mangler->parse($className);
+        if ($parsed === null) {
+            return null;
+        }
+
+        /** @var class-string $className */
+        return TypeBinding::of($parsed->templateName, $parsed->typeArguments, $className);
+    }
+
+    /**
+     * @param  class-string        $templateName
+     * @param  list<string>        $typeArguments
+     * @param  class-string        $specializedName
+     * @return class-string
+     */
+    private function record(string $templateName, array $typeArguments, string $specializedName): string
+    {
+        $this->registry->record(TypeBinding::of($templateName, $typeArguments, $specializedName));
+
+        return $specializedName;
     }
 
     private function classNameOf(object|string $value): string
