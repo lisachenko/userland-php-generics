@@ -39,8 +39,15 @@ use ZEngine\Reflection\ReflectionMethod as EngineMethod;
  * over the copy **while the template is still live**, which is the one moment the two can be
  * told apart: if the copy released something the template still owns, the next line crashes.
  *
- * Destructive by construction, hence the group and the process isolation. On a debug build with
- * `report_memleaks=1` a block the copy failed to release fails the run as well.
+ * Destructive by construction, hence the group and the process isolation. CI runs this group on
+ * a `--enable-debug` build, where that crash is instead a Zend assertion at the point of the
+ * mistake.
+ *
+ * It runs there with `report_memleaks=0`, which is deliberate. `ClassSpecializer` allocates
+ * blocks it documents as reclaimed by the request allocator at request end rather than freed
+ * explicitly, and the leak reporter counts exactly those - so a leak gate here would fail on the
+ * design rather than on a defect. z-engine reached that conclusion first: it leak-gates two
+ * dozen scenarios and specialization is not among them.
  */
 #[Group('internal')]
 final class SpecializationEvictionTest extends TestCase

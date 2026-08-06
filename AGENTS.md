@@ -137,6 +137,12 @@ inside a `--enable-debug` container built from `tools/docker/php-debug.Dockerfil
 mistake those tests look for - a specialization releasing a block its template still shares -
 is an assertion failure on a debug build and a crash somewhere unrelated on a release one.
 
+**Do not turn `report_memleaks` on for that job.** It was tried, and it fails: `ClassSpecializer`
+documents several of its FFI allocations as reclaimed by the request allocator at request end
+rather than freed explicitly, and the leak reporter counts precisely those. z-engine settled this
+first - it leak-gates two dozen scenarios and specialization is deliberately not one of them. A
+leak gate here asserts against the design, not against a defect.
+
 ## 7. Quality gates (all enforced in CI)
 
 ```bash
