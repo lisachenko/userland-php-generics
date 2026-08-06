@@ -20,7 +20,8 @@ composer install
 php -d ffi.enable=1 -d opcache.jit=off vendor/bin/phpunit   # or: composer test
 composer phpstan
 composer cs:check
-composer test:internal   # destructive group, needs a debug build
+composer test:internal   # destructive class-table eviction; a debug build also reports leaks
+composer test:preload    # boots preload.php in a child process, needs opcache
 ```
 
 `composer test:analysis` runs only the static-analysis tests and needs neither FFI nor a matching

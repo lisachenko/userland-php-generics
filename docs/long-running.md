@@ -87,11 +87,15 @@ scale, a worker runtime removes it entirely.
 
 ## opcache preload
 
-> **Specializing during `opcache.preload` is not supported.**
+> **Specializing during `opcache.preload` is not supported.** Measured on PHP 8.4 it does not
+> quietly fail - `Generic::warmUp()` inside a preload script **segfaults**, so the server does
+> not start at all. `tests/Runtime/PreloadTest.php` asserts that a specialization built during
+> preload never reaches the following request, however it fails.
 
 **Why.** The preload request is a request. Its allocations are released when it ends, so a class
-entry built there does not survive into the requests that follow. There is no error to catch — the
-class is simply not there afterwards.
+entry built there cannot survive into the requests that follow. The engine does not survive the
+attempt either: what it actually does is crash during preload, which at least means the mistake
+announces itself rather than leaving a class mysteriously absent later.
 
 **What does work, and is worth doing:** preloading the **templates**. A preloaded template is
 compiled once at server start and shared by every worker, so the specialization that happens at
