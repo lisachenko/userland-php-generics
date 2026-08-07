@@ -8,7 +8,7 @@
 real class whose `int` is enforced by the Zend Engine itself — the same `TypeError` you get
 from a hand-written class, on a class that did not exist a microsecond ago.**
 
-[![PHP Version](https://img.shields.io/badge/php-8.4-8892BF.svg)](https://www.php.net/)
+[![PHP Version](https://img.shields.io/badge/php-8.4%20%7C%208.5-8892BF.svg)](https://www.php.net/)
 [![License](https://img.shields.io/packagist/l/lisachenko/userland-php-generics.svg)](LICENSE)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](https://phpstan.org/)
 
@@ -208,10 +208,13 @@ autoloader is a side effect a library should not impose.
 
 ## Requirements and installation
 
-- PHP 8.4, NTS, x86-64
+- PHP 8.4 or 8.5 (supported in parallel), NTS, x86-64
 - `ext-ffi` with `ffi.enable=1`
 - `opcache.jit=off` (the JIT rewrites the executor internals z-engine hooks into)
-- [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) on the matching branch
+- [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — the
+  `8.4.x-dev || 8.5.x-dev` constraint lets composer resolve the z-engine line matching your
+  PHP minor (the `8.4` branch on PHP 8.4, `master` on PHP 8.5); z-engine owns all
+  version-dependent header complexity, so this package never deals with it
 
 ```bash
 composer require --dev lisachenko/userland-php-generics

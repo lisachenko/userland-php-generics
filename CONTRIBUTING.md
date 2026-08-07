@@ -7,8 +7,10 @@ about the engine itself.
 
 ## Before you start
 
-- **Match your PHP version to the branch.** Engine struct layouts are version-specific; this package
-  tracks one PHP minor at a time.
+- **Run only supported PHP minors.** Engine struct layouts are version-specific; z-engine tracks
+  one minor per release line, and the `8.4.x-dev || 8.5.x-dev` constraint makes composer resolve
+  the line matching your PHP, so this package supports both minors in parallel. Anything newer
+  (8.6 nightly) installs but cannot touch the engine yet.
 - **Develop against a debug build** (`--enable-debug`, FFI on). It turns silent memory corruption
   into loud assertion failures.
 - FFI must be enabled (`ffi.enable=1`) and the JIT disabled (`opcache.jit=off`).
@@ -48,7 +50,7 @@ PHP build, so you can work on the PHPStan extension anywhere.
 
 ## Pull request checklist
 
-- [ ] `composer test` passes on the matching PHP minor
+- [ ] `composer test` passes on every supported PHP minor (CI runs 8.4 and 8.5)
 - [ ] `composer phpstan` and `composer cs:check` are green
 - [ ] `composer stubs:check` is green if you touched a template or the generator
 - [ ] tests added or updated, with unique specialized class names

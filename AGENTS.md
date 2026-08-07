@@ -79,9 +79,14 @@ needs a reason, not a refactor. Each is explained in full in the README.
 
 ## 1. Version matching is still non-negotiable
 
-Engine struct layouts are version-specific. This package tracks **one PHP minor at a time**, the same
-one the z-engine branch it depends on tracks. Never run the suite against a different minor, and never
-try to defeat `Core::init()`'s guard.
+Engine struct layouts are version-specific, and z-engine tracks **one PHP minor per release
+line** (`8.4` branch for PHP 8.4, `master` for PHP 8.5). This package supports **PHP 8.4 and
+8.5 in parallel** by declaring z-engine as `8.4.x-dev || 8.5.x-dev`, so composer resolves the
+line matching the running platform — z-engine owns all version-dependent header complexity,
+and CI exercises the whole matrix. The rule is unchanged: never run the suite on a minor the
+resolved z-engine does not target, and never try to defeat `Core::init()`'s guard.
+PHP 8.6 nightly may `composer install` (the analysis layer works there), but nothing that
+touches the engine is supported until a z-engine line for 8.6 exists.
 
 Running anything that touches the engine requires:
 
