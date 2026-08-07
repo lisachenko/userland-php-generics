@@ -6,10 +6,11 @@ on:
       - main
   pull_request:
 
-# Engine structures are version-specific, but z-engine bundles generated
-# definitions for every supported minor and selects the right set at boot -
-# so this package runs on PHP 8.4 and 8.5 in parallel, and every
-# engine-touching job runs against both minors.
+# Engine structures are version-specific and z-engine tracks one PHP minor per
+# release line, but the "8.4.x-dev || 8.5.x-dev" constraint lets composer
+# resolve the line matching each runner's PHP - so this package runs on
+# PHP 8.4 and 8.5 in parallel, and every engine-touching job runs against
+# both minors.
 jobs:
   tests:
     name: Tests (release, NTS, PHP ${{ matrix.php }})

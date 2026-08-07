@@ -211,9 +211,10 @@ autoloader is a side effect a library should not impose.
 - PHP 8.4 or 8.5 (supported in parallel), NTS, x86-64
 - `ext-ffi` with `ffi.enable=1`
 - `opcache.jit=off` (the JIT rewrites the executor internals z-engine hooks into)
-- [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — one install covers both
-  minors: it bundles generated engine definitions per PHP version and selects the right set
-  at boot, so this package never deals with version-dependent headers itself
+- [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — the
+  `8.4.x-dev || 8.5.x-dev` constraint lets composer resolve the z-engine line matching your
+  PHP minor (the `8.4` branch on PHP 8.4, `master` on PHP 8.5); z-engine owns all
+  version-dependent header complexity, so this package never deals with it
 
 ```bash
 composer require --dev lisachenko/userland-php-generics
