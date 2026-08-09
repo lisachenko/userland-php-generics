@@ -73,9 +73,26 @@ needs a reason, not a refactor. Each is explained in full in the README.
     analyses itself with its own `extension.neon` for the same reason: a rule that crashes or a
     generator that drifts fails here rather than in somebody's project.
 
-13. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
-    should happen. Keeping the dependency in one place is what makes it possible to say exactly
-    when engine state is touched.
+13. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes
+    what should happen in this package's own vocabulary (`SubstitutionRequest`, `SlotAddress`);
+    `Monomorphizer` translates that into z-engine's value objects at the single point where the
+    engine is asked. Keeping the dependency in one place is what makes it possible to say
+    exactly when engine state is touched. Two corollaries: z-engine is consumed through its
+    documented API only — never `Core::$executor`/`Core::$compiler`, never a method marked
+    `@internal` — and nothing here re-derives z-engine's own environment rules. The one
+    sanctioned exception outside `Monomorphizer` is `EngineCapabilities`, whose
+    `class_exists()` on a public z-engine class name is deliberate feature detection.
+
+14. **Nothing in this package boots the engine.** Z-Engine initializes itself from its Composer
+    bootstrap, including during the `opcache.preload` stage, so `require vendor/autoload.php`
+    is the whole boot and the shipped `preload.php` needs no engine call at all. That boot is
+    deliberately *silent* on a host that cannot run the engine, which is what lets the analysis
+    suite run without ext-ffi — so code that needs the engine calls the idempotent
+    `Core::init()` to turn the silence into its explanation (`Monomorphizer::boot()`,
+    `Generic::bootstrap()`), and `RequiresEngine` asks `Core::isInitialized()` to skip.
+    Never hand-roll that check: the `filter_var(ini_get('ffi.enable'))` this repo used to carry
+    was wrong in both directions — it rejected the supported `preload` mode and silently
+    skipped the whole engine suite, and it booted on hosts z-engine refuses.
 
 ## 1. Version matching is still non-negotiable
 

@@ -11,8 +11,6 @@
  */
 declare(strict_types=1);
 
-use ZEngine\Core;
-
 /**
  * Point `opcache.preload` at this file, or include it from your own preload script:
  *
@@ -39,13 +37,13 @@ use ZEngine\Core;
  * See docs/long-running.md for the whole picture and the per-request budget.
  * ---------------------------------------------------------------------------------------------
  */
-require_once __DIR__ . '/vendor/autoload.php';
-
 /*
- * Loads z-engine's engine definitions once at server start instead of per request. This is the
- * expensive part of booting the engine, and it is exactly the part preload can carry.
+ * This also loads z-engine's engine definitions once at server start instead of per request -
+ * the expensive part of booting the engine, and exactly the part preload can carry. Requiring
+ * the autoloader is the whole of it: z-engine's own Composer bootstrap recognises the preload
+ * stage and publishes the definitions for the life of the server.
  */
-Core::preload();
+require_once __DIR__ . '/vendor/autoload.php';
 
 /*
  * This package's **runtime** classes. `opcache_compile_file()` rather than `class_exists()`:

@@ -23,7 +23,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionProperty;
 use TypeError;
-use ZEngine\Core;
+use ZEngine\Reflection\ClassSpecializer;
 use ZEngine\Reflection\ReflectionMethod as EngineMethod;
 
 /**
@@ -165,7 +165,7 @@ final class SpecializationEvictionTest extends TestCase
     }
 
     /**
-     * Deletes the class-table bucket, running the full user-class teardown now
+     * Evicts the class from the engine, running the full user-class teardown now
      *
      * `destroy_zend_class()` with refcount 1 - tables, own property infos and constants, owned
      * names - rather than at request shutdown where nothing can be distinguished.
@@ -179,7 +179,7 @@ final class SpecializationEvictionTest extends TestCase
     {
         self::assertTrue(class_exists($className, false), 'nothing to evict - the test set itself up wrong');
 
-        Core::$executor->classTable->delete(strtolower($className));
+        self::assertTrue((new ClassSpecializer())->evict($className), 'the engine did not know the class');
 
         self::assertFalse(class_exists($className, false), 'the class-table bucket was not removed');
     }

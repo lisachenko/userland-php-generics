@@ -13,12 +13,19 @@ declare(strict_types=1);
 
 use ZEngine\Core;
 
-if (!extension_loaded('ffi')) {
-    fwrite(STDERR, "The benchmark harness drives the engine and needs ext-ffi.\n");
+include __DIR__ . '/../vendor/autoload.php';
+
+/*
+ * Requiring the autoloader already booted the engine, or left it unbooted because this host
+ * cannot run it. The harness has nothing to measure in the second case, so it asks
+ * Core::init() - a no-op after a successful boot - for the one-sentence explanation (missing
+ * ext-ffi, ffi.enable value, PHP minor mismatch, unsupported platform) and relays that instead
+ * of failing later with a stack trace.
+ */
+try {
+    Core::init();
+} catch (RuntimeException $bootFailure) {
+    fwrite(STDERR, "The benchmark harness drives the engine and cannot boot it here:\n{$bootFailure->getMessage()}\n");
 
     exit(1);
 }
-
-include __DIR__ . '/../vendor/autoload.php';
-
-Core::init();

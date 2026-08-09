@@ -11,20 +11,17 @@
  */
 declare(strict_types=1);
 
-use ZEngine\Core;
-
 ini_set('display_errors', 'on');
 
-include __DIR__ . '/../vendor/autoload.php';
-
 /*
- * The analysis suite tests the PHPStan extension, which never touches the engine, so it has to
- * run on a host without ext-ffi. Booting unconditionally would make it impossible to run there.
+ * Requiring the autoloader is the whole boot: z-engine initializes itself from its own
+ * Composer bootstrap, and does so silently on a host that cannot run the engine. That is what
+ * lets the analysis suite - which tests the PHPStan extension and never touches the engine -
+ * run on a host without ext-ffi, while test classes that do drive the engine use the
+ * RequiresEngine trait and skip when the boot did not happen.
  *
- * This is not defeating Core::init()'s version guard (AGENTS.md section 1) - when FFI *is*
- * available the guard runs exactly as before. Test classes that drive the engine use the
- * RequiresEngine trait, which skips them when this boot did not happen.
+ * Nothing here re-derives z-engine's environment rules. The previous
+ * filter_var(ini_get('ffi.enable')) check got them wrong in both directions: it rejected the
+ * supported `preload` mode, and it booted on hosts z-engine refuses.
  */
-if (extension_loaded('ffi') && filter_var(ini_get('ffi.enable'), FILTER_VALIDATE_BOOL)) {
-    Core::init();
-}
+include __DIR__ . '/../vendor/autoload.php';
