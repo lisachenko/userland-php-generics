@@ -58,9 +58,10 @@ while ($request = $worker->waitRequest()) {
 }
 ```
 
-`Generic::bootstrap()` is optional but worth calling explicitly: it boots z-engine at start-up, so
-an unusable host fails as a startup error rather than on whichever request happens to specialize
-first.
+`Generic::bootstrap()` is optional but worth calling explicitly. Z-Engine boots itself from its
+Composer bootstrap, so this is normally a no-op — but that boot is deliberately silent on a host
+that cannot run the engine, and this is what turns the silence into a startup error rather than a
+failure on whichever request happens to specialize first.
 
 Two rules for the loop itself:
 
@@ -100,8 +101,10 @@ announces itself rather than leaving a class mysteriously absent later.
 **What does work, and is worth doing:** preloading the **templates**. A preloaded template is
 compiled once at server start and shared by every worker, so the specialization that happens at
 request time starts from a class entry that is already in memory. Preloading z-engine's own
-definitions through `Core::preload()` is the same kind of win, and is why the repository ships a
-`preload.php`:
+definitions is the same kind of win and now happens by itself — its Composer bootstrap recognises
+the preload stage and publishes the engine definitions for the life of the server — which is why
+the `preload.php` this repository ships needs to do nothing but require the autoloader and compile
+your templates:
 
 ```ini
 opcache.preload = /path/to/vendor/lisachenko/userland-php-generics/preload.php

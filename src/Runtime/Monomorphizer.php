@@ -38,17 +38,17 @@ final class Monomorphizer
     public function __construct(private readonly ClassSpecializer $specializer = new ClassSpecializer()) {}
 
     /**
-     * Boots the engine if it is not already booted (idempotent)
+     * Makes sure the engine is available, or explains why it is not
      *
-     * `Core::isInitialized()` rather than probing engine state: the flag is set on the last
-     * line of a boot that completed, so a boot that failed midway never reports ready.
-     * Z-Engine owns the environment checks and explains anything it cannot support.
+     * Normally a no-op: z-engine boots itself from its Composer bootstrap, so by the time any
+     * of this package runs the bridge is already up. It stays worth calling because that boot
+     * is deliberately silent on a host that cannot support it - `Core::init()` is idempotent
+     * and re-invocable, so this is either free or the RuntimeException naming the reason
+     * (no ext-ffi, ffi.enable=0, a PHP minor z-engine has no verified layouts for).
      */
     public function boot(): void
     {
-        if (!Core::isInitialized()) {
-            Core::init();
-        }
+        Core::init();
     }
 
     /**

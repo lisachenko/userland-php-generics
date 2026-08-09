@@ -16,10 +16,11 @@ use ZEngine\Core;
 include __DIR__ . '/../vendor/autoload.php';
 
 /*
- * The harness cannot run without the engine, so there is nothing to probe and no reason to
- * re-derive z-engine's environment rules: boot, and if the host cannot support it, relay the
- * one-sentence explanation Core::init() already gives (missing ext-ffi, ffi.enable value,
- * PHP minor mismatch, unsupported platform) instead of a stack trace.
+ * Requiring the autoloader already booted the engine, or left it unbooted because this host
+ * cannot run it. The harness has nothing to measure in the second case, so it asks
+ * Core::init() - a no-op after a successful boot - for the one-sentence explanation (missing
+ * ext-ffi, ffi.enable value, PHP minor mismatch, unsupported platform) and relays that instead
+ * of failing later with a stack trace.
  */
 try {
     Core::init();

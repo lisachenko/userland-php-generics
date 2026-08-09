@@ -27,11 +27,14 @@ final class Generic
     private static ?GenericFactory $factory = null;
 
     /**
-     * Boots the engine now rather than on first specialization
+     * Confirms the engine is available, at a point of your choosing
      *
-     * Optional - every specialization boots on demand - but calling it at application start
-     * surfaces an unusable host as a startup error instead of a surprise later. Z-Engine owns
-     * the environment checks and explains anything it cannot support.
+     * Optional, and cheaper than it used to be: z-engine boots itself from its Composer
+     * bootstrap, so this is normally a no-op. What it still buys is *where* an unusable host
+     * reports itself - that boot is deliberately silent, so without this the first
+     * specialization is what discovers the problem. Call it at application start and a host
+     * that cannot run the engine fails there instead. Z-Engine owns the environment checks and
+     * explains anything it cannot support.
      */
     public static function bootstrap(): void
     {
