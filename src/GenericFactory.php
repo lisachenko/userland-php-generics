@@ -79,6 +79,17 @@ final class GenericFactory implements NestedTypeResolver
     }
 
     /**
+     * Boots the engine now rather than on first specialization
+     *
+     * Optional - every specialization boots on demand - but calling it at application start
+     * surfaces an unusable host as a startup error instead of a surprise later.
+     */
+    public function bootstrap(): void
+    {
+        $this->monomorphizer->boot();
+    }
+
+    /**
      * Returns the class name of `$templateName<...$typeArguments>`, materializing it on first use
      *
      * @param  class-string $templateName

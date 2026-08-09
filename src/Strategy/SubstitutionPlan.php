@@ -13,10 +13,6 @@ declare(strict_types=1);
 
 namespace Lisachenko\Generics\Strategy;
 
-use ZEngine\Reflection\SlotSubstitutionMap;
-use ZEngine\Reflection\TypeSlot;
-use ZEngine\Reflection\TypeSubstitutionMap;
-
 /**
  * Accumulates what every strategy wants substituted, then hands over one request
  *
@@ -32,7 +28,7 @@ final class SubstitutionPlan
     private array $byTypeName = [];
 
     /**
-     * @var list<array{TypeSlot, string}>
+     * @var list<array{SlotAddress, string}>
      */
     private array $bySlot = [];
 
@@ -41,7 +37,7 @@ final class SubstitutionPlan
         $this->byTypeName[$placeholderTypeName] = $replacement;
     }
 
-    public function substituteSlot(TypeSlot $slot, string $replacement): void
+    public function substituteSlot(SlotAddress $slot, string $replacement): void
     {
         $this->bySlot[] = [$slot, $replacement];
     }
@@ -53,9 +49,6 @@ final class SubstitutionPlan
 
     public function toRequest(): SubstitutionRequest
     {
-        return new SubstitutionRequest(
-            $this->byTypeName === [] ? null : new TypeSubstitutionMap($this->byTypeName),
-            $this->bySlot     === [] ? null : new SlotSubstitutionMap($this->bySlot),
-        );
+        return new SubstitutionRequest($this->byTypeName, $this->bySlot);
     }
 }

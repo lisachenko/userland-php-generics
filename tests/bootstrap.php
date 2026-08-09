@@ -21,10 +21,13 @@ include __DIR__ . '/../vendor/autoload.php';
  * The analysis suite tests the PHPStan extension, which never touches the engine, so it has to
  * run on a host without ext-ffi. Booting unconditionally would make it impossible to run there.
  *
- * This is not defeating Core::init()'s version guard (AGENTS.md section 1) - when FFI *is*
- * available the guard runs exactly as before. Test classes that drive the engine use the
- * RequiresEngine trait, which skips them when this boot did not happen.
+ * Whether the engine paths can run here is z-engine's question, and Core::isUsable() is its
+ * exact answer - a hand-rolled ini_get('ffi.enable') check gets it wrong, because the
+ * supported `preload` mode is not a boolean. This is not defeating Core::init()'s version
+ * guard (AGENTS.md section 1) - when the environment *is* usable the guard runs exactly as
+ * before. Test classes that drive the engine use the RequiresEngine trait, which skips them
+ * when this boot did not happen.
  */
-if (extension_loaded('ffi') && filter_var(ini_get('ffi.enable'), FILTER_VALIDATE_BOOL)) {
+if (Core::isUsable()) {
     Core::init();
 }

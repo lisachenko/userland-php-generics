@@ -73,9 +73,19 @@ needs a reason, not a refactor. Each is explained in full in the README.
     analyses itself with its own `extension.neon` for the same reason: a rule that crashes or a
     generator that drifts fails here rather than in somebody's project.
 
-13. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes what
-    should happen. Keeping the dependency in one place is what makes it possible to say exactly
-    when engine state is touched.
+13. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes
+    what should happen in this package's own vocabulary (`SubstitutionRequest`, `SlotAddress`);
+    `Monomorphizer` translates that into z-engine's value objects at the single point where the
+    engine is asked. Keeping the dependency in one place is what makes it possible to say
+    exactly when engine state is touched. Two corollaries: z-engine is consumed through its
+    documented API only — never `Core::$executor`/`Core::$compiler`, never a method marked
+    `@internal`, and "is the engine booted / usable here" is always `Core::isInitialized()` /
+    `Core::isUsable()`, never a hand-rolled probe (the last one this repo carried rejected the
+    supported `ffi.enable=preload` mode and silently skipped the whole engine suite). The one
+    sanctioned exception outside `Monomorphizer` is `EngineCapabilities`, whose
+    `class_exists()` on a public z-engine class name is deliberate feature detection.
+    Boot scripts (`preload.php`, the test/benchmark bootstraps) may call `Core::init()`/
+    `Core::preload()` directly — those are z-engine's documented entry points.
 
 ## 1. Version matching is still non-negotiable
 

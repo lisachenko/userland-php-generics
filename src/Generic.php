@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Lisachenko\Generics;
 
 use Lisachenko\Generics\Runtime\SpecializationRegistry;
-use ZEngine\Core;
 
 /**
  * Static entry point to the generics runtime
@@ -36,7 +35,7 @@ final class Generic
      */
     public static function bootstrap(): void
     {
-        Core::init();
+        self::factory()->bootstrap();
     }
 
     /**

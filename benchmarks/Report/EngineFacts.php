@@ -41,7 +41,7 @@ final class EngineFacts
 
         $sizes = [];
         foreach (['zend_class_entry', 'zend_op_array', 'zend_property_info', 'zend_arg_info', 'zend_op'] as $type) {
-            $sizes[$type] = Core::sizeof(Core::type($type));
+            $sizes[$type] = Core::sizeOfType($type);
         }
 
         return self::$sizes = $sizes;

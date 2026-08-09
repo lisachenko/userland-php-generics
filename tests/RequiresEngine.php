@@ -24,15 +24,16 @@ use ZEngine\Core;
  * call into the engine cannot run on either. Nor is it a check on the ini value, which is
  * spelled several different ways and means different things per SAPI.
  *
- * The precondition that actually matters is "did `Core::init()` run", which the bootstrap
- * attempts exactly once and which is true only when the engine is genuinely usable.
+ * The precondition that actually matters is "did `Core::init()` complete", which the bootstrap
+ * attempts exactly once, `Core::isInitialized()` reports exactly, and which is true only when
+ * the engine is genuinely usable.
  */
 trait RequiresEngine
 {
     #[Before]
     protected function skipWithoutABootedEngine(): void
     {
-        if (!isset(Core::$executor)) {
+        if (!Core::isInitialized()) {
             self::markTestSkipped(
                 'This test drives the Zend Engine. Run it with ffi.enable=1, for example: '
                 . 'php -d ffi.enable=1 -d opcache.jit=off vendor/bin/phpunit',

@@ -16,7 +16,6 @@ namespace Lisachenko\Generics\Strategy;
 use Lisachenko\Generics\Template\SlotForm;
 use Lisachenko\Generics\Template\SlotKind;
 use Lisachenko\Generics\Template\TemplateDefinition;
-use ZEngine\Reflection\TypeSlot;
 
 /**
  * Handles slots that announce their type parameter with #[Of] or #[OfReturn]
@@ -37,9 +36,9 @@ final class SlotAttributeStrategy implements SubstitutionStrategy
                 continue;
             }
             $plan->substituteSlot(match ($slot->kind) {
-                SlotKind::Property   => TypeSlot::property($slot->memberName),
-                SlotKind::Parameter  => TypeSlot::parameter($slot->memberName, $slot->parameterIndex ?? 0),
-                SlotKind::ReturnType => TypeSlot::returnType($slot->memberName),
+                SlotKind::Property   => SlotAddress::property($slot->memberName),
+                SlotKind::Parameter  => SlotAddress::parameter($slot->memberName, $slot->parameterIndex ?? 0),
+                SlotKind::ReturnType => SlotAddress::returnType($slot->memberName),
             }, $slot->nullable ? '?' . $replacement : $replacement);
         }
     }

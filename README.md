@@ -106,10 +106,11 @@ an unspecialized `Box` accepts nothing at all.
    resolve eagerly and depth-first because the outer slot stores nothing but the inner class
    name.
 3. `AngleBracketNameMangler` derives the runtime name, `Box<int>`.
-4. The substitution strategies contribute to one `SubstitutionPlan`.
-5. `Monomorphizer` — the single class in the package that talks to z-engine — asks
-   `ClassSpecializer` to deep-clone the class entry, rewrite the types and register the result
-   in `EG(class_table)`.
+4. The substitution strategies contribute to one `SubstitutionPlan`, expressed entirely in
+   this package's own types.
+5. `Monomorphizer` — the single class in the package that talks to z-engine — translates the
+   plan into the engine's vocabulary and asks `ClassSpecializer` to deep-clone the class
+   entry, rewrite the types and register the result in `EG(class_table)`.
 
 Every validation happens **before** the engine is asked for anything, so a rejected call can
 never leave a half-registered class behind.
