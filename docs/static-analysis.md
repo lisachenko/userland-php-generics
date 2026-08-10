@@ -113,6 +113,34 @@ Both were learned the hard way and are not negotiable:
   analysed paths are indexed. That is why the generated `of()` is written out in full rather
   than inherited from `GenericTemplate`.
 
+PHP's *own* interfaces are the exception to the second one, and the generator does declare them:
+`$vector[0]`, `count($vector)` and `foreach` are only legal in analysed code if the stub says
+the class is an `ArrayAccess`, a `Countable` and an `IteratorAggregate`. A generic interface has
+to say what it was parameterized with, and only the template knows — so the generator copies the
+`@implements` tags off the template's own class doc comment, which is where this package keeps
+everything static analysis needs. Everything else about a stub is read from reflection:
+visibility, class constants, parameter defaults and static named constructors are all
+reproduced, because analysed code that names one has to find it.
+
+### The stub replaces the declaration, so keep PHPStan from reading both
+
+A stub only wins if the analyser is not also reading the real file. In your own project the
+template lives in a path you analyse, so exclude it from **scanning**, not just from analysis:
+
+```neon
+parameters:
+    excludePaths:
+        analyseAndScan:
+            - src/Box.php
+    stubFiles:
+        - var/generics-stubs/box-stub.php
+```
+
+The price of doing that is stated in
+[`limitations.md`](limitations.md#a-stub-described-template-does-not-narrow-of): the stubbed
+class is not a `GenericObject`, so `Box::of('int')` no longer narrows and the specialization has
+to be spelled once, in the `@var` or `@param` where it enters your code.
+
 ### The placeholders file
 
 The placeholder types never exist at run time — an undefined class name is precisely what gives

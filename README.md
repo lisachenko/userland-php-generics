@@ -32,8 +32,9 @@ from a hand-written class, on a class that did not exist a microsecond ago.**
 - [Identity: sibling, not subclass](#identity-sibling-not-subclass)
 - [Static analysis](#static-analysis) and the [extension guide](docs/static-analysis.md)
 - [Long-running processes](#long-running-processes) and the [deployment guide](docs/long-running.md)
-- [Known limitations](#known-limitations), in full in [docs/limitations.md](docs/limitations.md)
+- [Native data vectors](#native-data-vectors) and the [memory model](docs/native-vectors.md)
 - [A runnable example](#a-runnable-example)
+- [Known limitations](#known-limitations), in full in [docs/limitations.md](docs/limitations.md)
 - [What it costs](#what-it-costs) and the full [benchmark report](docs/benchmarks.md)
 - [Design notes](#design-notes) and the full [design document](docs/design.md)
 - [Contributing](#contributing)
@@ -435,16 +436,47 @@ registration lives until the request (or worker) ends. Nothing survives shutdown
 [`docs/long-running.md`](docs/long-running.md) has the per-request budget, the worker and FPM
 recipes and a deployment checklist.
 
+## Native data vectors
+
+`array<T>` element types are the one thing this package cannot enforce at run time (see
+[Known limitations](#known-limitations)). For scalars there is now a data structure that can:
+
+```php
+use Lisachenko\Generics\Native\NativeVector;
+
+$samples = new (NativeVector::of('int'))($blobFromTheWire);
+
+echo $samples[0];          // a zend_long read straight out of the block
+$samples[1] = -20;         // written straight back into it
+$samples->append(50);      // the block grows by eight bytes
+$samples->append(1.5);     // TypeError, from the engine
+
+$bytes = $samples->toBinary();  // back to a PHP string, byte for byte
+```
+
+**The block of memory is a PHP string.** Element `i` lives at byte `i * 8` of that string's
+`zend_string.val`, and every accessor reaches it as a `zend_long *` or a `double *` — there is
+no encoding step, so `pack()`/`unpack()` appear nowhere on the path. The element type is
+enforced because `get()`, `set()` and `append()` are declared with the type parameter, which is
+a slot the engine really does check; the array syntax delegates to them rather than replacing
+them.
+
+[`docs/native-vectors.md`](docs/native-vectors.md) has the memory model, the copy-on-write
+discipline that makes `toBinary()` safe to hand out, the static-analysis setup, and the roadmap
+towards sized scalar kinds and C structures.
+
 ## A runnable example
 
 ```bash
 php -d ffi.enable=1 -d opcache.jit=off examples/collection.php
+php -d ffi.enable=1 -d opcache.jit=off examples/native-vector.php
 ```
 
 [`examples/collection.php`](examples/collection.php) specializes a collection template, prints
 `get_class()`, shows the engine's own `TypeError` rejecting the wrong element type, and shows the
-template left exactly as it was. It is covered by a test that runs it, so it cannot quietly stop
-working.
+template left exactly as it was. [`examples/native-vector.php`](examples/native-vector.php) casts
+a binary blob to a `NativeVector<int>`, indexes it, grows it and hands it back as a string. Both
+are covered by tests that run them, so they cannot quietly stop working.
 
 ## Known limitations
 
@@ -457,7 +489,8 @@ anything else:
   array type, so a slot declared `array` is checked for being an array and nothing more. The doc
   tag still carries the element type and PHPStan still enforces it — but statically only. This is
   the one place where less is checked at run time than it looks, and therefore the most likely
-  source of false confidence in the package.
+  source of false confidence in the package. For scalar elements,
+  [native data vectors](#native-data-vectors) are the way out.
 - **A specialization is a sibling, not a subclass.** `$box instanceof Box` is `false` and cannot
   be made true. Type-hint an interface or an abstract base; both are preserved.
 - **Everything is request-scoped.** Class entries are request memory. Specialize at worker boot —

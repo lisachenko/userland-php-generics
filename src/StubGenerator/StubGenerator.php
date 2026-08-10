@@ -20,6 +20,7 @@ use Lisachenko\Generics\Template\TemplateDefinition;
 use Lisachenko\Generics\Template\TemplateParameterDefinition;
 use Lisachenko\Generics\Template\TemplateParser;
 use ReflectionClass;
+use ReflectionClassConstant;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
@@ -60,13 +61,21 @@ final class StubGenerator
         $reflection = new ReflectionClass($className);
 
         $body = [];
+        foreach ($reflection->getReflectionConstants() as $constant) {
+            if ($this->isOwnedBy($reflection, $constant)) {
+                $body[] = $this->constant($constant);
+            }
+        }
         foreach ($reflection->getProperties() as $property) {
             if ($this->isOwnedBy($reflection, $property)) {
                 $body[] = $this->property($property, $definition);
             }
         }
         foreach ($reflection->getMethods() as $method) {
-            if ($this->isOwnedBy($reflection, $method) && !$method->isStatic()) {
+            // of() is the one method written out below rather than reproduced, so it is the
+            // one method skipped here; every other own method - static ones included, because
+            // a template's named constructors are part of how it is used - is reproduced
+            if ($this->isOwnedBy($reflection, $method) && strtolower($method->getName()) !== 'of') {
                 $body[] = $this->method($method, $definition);
             }
         }
@@ -80,10 +89,11 @@ final class StubGenerator
             $className,
             $reflection->getNamespaceName(),
             sprintf(
-                "%s\n%sclass %s\n{\n%s\n}\n",
-                $this->classDocBlock($definition),
+                "%s\n%sclass %s%s\n{\n%s\n}\n",
+                $this->classDocBlock($definition, $reflection),
                 $reflection->isFinal() ? 'final ' : '',
                 $reflection->getShortName(),
+                $this->implementsClause($reflection),
                 implode("\n\n", $body),
             ),
             $this->placeholderNames($definition),
@@ -111,7 +121,113 @@ final class StubGenerator
         return array_keys($names);
     }
 
-    private function classDocBlock(TemplateDefinition $definition): string
+    /**
+     * The `implements` list, restricted to the interfaces PHP itself declares
+     *
+     * A template's *own* interfaces cannot be named here - stub files are reflected before the
+     * analysed paths are indexed, so `GenericObject` would be an unknown name. PHP's own are a
+     * different case entirely: they are always present, and leaving them out is what would be
+     * wrong, because `$vector[0]`, `count($vector)` and `foreach ($vector as ...)` are only
+     * legal in analysed code if the stub says the class is an ArrayAccess, a Countable and an
+     * IteratorAggregate. Interfaces implied by another kept interface (Traversable behind
+     * IteratorAggregate) are dropped so the list reads the way the class declared it.
+     *
+     * @param ReflectionClass<object> $reflection
+     */
+    private function implementsClause(ReflectionClass $reflection): string
+    {
+        $internal = array_filter(
+            $reflection->getInterfaceNames(),
+            static fn(string $name): bool => (new ReflectionClass($name))->isInternal(),
+        );
+
+        $direct = array_filter(
+            $internal,
+            static function (string $name) use ($internal): bool {
+                foreach ($internal as $other) {
+                    if ($other !== $name && is_subclass_of($other, $name)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
+        );
+        sort($direct);
+
+        return $direct === []
+            ? ''
+            : ' implements ' . implode(', ', array_map(static fn(string $n): string => '\\' . $n, $direct));
+    }
+
+    /**
+     * The `@implements` tags the template wrote, with their interface names made absolute
+     *
+     * A generic interface named in an `implements` clause has to say what it was parameterized
+     * with, or PHPStan reports the stub itself. Only the template knows - `ArrayAccess<int, T>`
+     * is a statement about the class, not something reflection can derive - so this reads the
+     * class doc comment, which is where this package keeps everything static analysis needs
+     * (AGENTS.md decision 1; the prohibition on doc comments is on the *runtime* path, and a
+     * stub generator is the other one).
+     *
+     * The name is rewritten absolute because the stub is emitted into the template's own
+     * namespace, where a bare `ArrayAccess` would resolve to a class that does not exist.
+     *
+     * @param  ReflectionClass<object> $reflection
+     * @return list<string>
+     */
+    private function implementsTags(ReflectionClass $reflection): array
+    {
+        $docComment = $reflection->getDocComment();
+        if ($docComment === false) {
+            return [];
+        }
+
+        $matched = preg_match_all(
+            '{@implements\s+\\\\?(?P<name>[A-Za-z_\x80-\xff][\w\x80-\xff]*(?:\\\\[\w\x80-\xff]+)*)(?P<arguments><.*>)}',
+            $docComment,
+            $matches,
+            PREG_SET_ORDER,
+        );
+        if ($matched === false) {
+            return [];
+        }
+
+        $tags = [];
+        foreach ($matches as $match) {
+            foreach ($reflection->getInterfaceNames() as $interface) {
+                if (strcasecmp($interface, $match['name'])                                           === 0
+                    || strcasecmp((new ReflectionClass($interface))->getShortName(), $match['name']) === 0
+                ) {
+                    $tags[] = sprintf(' * @implements \\%s%s', $interface, $match['arguments']);
+                    break;
+                }
+            }
+        }
+
+        return $tags;
+    }
+
+    /**
+     * A class constant, reproduced verbatim
+     *
+     * Constants carry no type parameter and therefore need no rewriting, but they are part of
+     * the class's surface: analysed code naming one has to find it here.
+     */
+    private function constant(ReflectionClassConstant $constant): string
+    {
+        return sprintf(
+            '    %s const %s = %s;',
+            $constant->isPublic() ? 'public' : ($constant->isProtected() ? 'protected' : 'private'),
+            $constant->getName(),
+            self::exported($constant->getValue()),
+        );
+    }
+
+    /**
+     * @param ReflectionClass<object> $reflection
+     */
+    private function classDocBlock(TemplateDefinition $definition, ReflectionClass $reflection): string
     {
         $lines = ['/**'];
         foreach ($definition->parameters as $parameter) {
@@ -120,6 +236,9 @@ final class StubGenerator
             $lines[] = $parameter->bound === null
                 ? sprintf(' * @template %s', $parameter->name)
                 : sprintf(' * @template %s of \\%s', $parameter->name, ltrim($parameter->bound, '\\'));
+        }
+        foreach ($this->implementsTags($reflection) as $tag) {
+            $lines[] = $tag;
         }
         $lines[] = ' */';
 
@@ -138,8 +257,7 @@ final class StubGenerator
         // A typed property with no default is uninitialized, which is a different thing from
         // one defaulting to null - and PHPStan is right to treat them differently
         $default = $property->hasDefaultValue()
-            // var_export() writes NULL/TRUE/FALSE in capitals, which no PHP style guide wants
-            ? sprintf(' = %s', str_replace(['NULL', 'TRUE', 'FALSE'], ['null', 'true', 'false'], var_export($property->getDefaultValue(), true)))
+            ? sprintf(' = %s', self::exported($property->getDefaultValue()))
             : '';
 
         return sprintf(
@@ -175,24 +293,49 @@ final class StubGenerator
         $returnType = $returnSlot === null ? $this->nativeType($method->getReturnType()) : 'mixed';
 
         return sprintf(
-            '%s    public function %s(%s)%s {}',
+            '%s    %s%s function %s(%s)%s {}',
             $tags === [] ? '' : sprintf("    /**\n%s\n     */\n", implode("\n", $tags)),
+            // Visibility is reproduced rather than assumed: a stub that promoted a private
+            // helper to public would let analysed code call it and be told nothing
+            $method->isPublic() ? 'public' : ($method->isProtected() ? 'protected' : 'private'),
+            $method->isStatic() ? ' static' : '',
             $method->getName(),
             implode(', ', $parameters),
             $returnType === '' ? '' : ': ' . $returnType,
         );
     }
 
+    /**
+     * One parameter, keeping its default value
+     *
+     * Dropping the default would make an optional parameter required for analysis, and every
+     * `new (Template::of('int'))()` on a template with a defaulted constructor would be
+     * reported as passing too few arguments.
+     */
     private function parameter(ReflectionParameter $parameter, ?SlotDefinition $slot): string
     {
-        $type = $slot === null ? $this->nativeType($parameter->getType()) : 'mixed';
+        $type    = $slot === null ? $this->nativeType($parameter->getType()) : 'mixed';
+        $default = !$parameter->isVariadic() && $parameter->isDefaultValueAvailable()
+            ? sprintf(' = %s', self::exported($parameter->getDefaultValue()))
+            : '';
 
         return trim(sprintf(
-            '%s %s$%s',
+            '%s %s$%s%s',
             $type,
             $parameter->isVariadic() ? '...' : '',
             $parameter->getName(),
+            $default,
         ));
+    }
+
+    /**
+     * A value written the way PHP source spells it
+     *
+     * var_export() writes NULL/TRUE/FALSE in capitals, which no PHP style guide wants.
+     */
+    private static function exported(mixed $value): string
+    {
+        return str_replace(['NULL', 'TRUE', 'FALSE'], ['null', 'true', 'false'], var_export($value, true));
     }
 
     /**
@@ -245,7 +388,12 @@ final class StubGenerator
             return (string) $type;
         }
 
-        $name = $type->isBuiltin() ? $type->getName() : '\\' . ltrim($type->getName(), '\\');
+        // `static` and `self` are relative names rather than class names, so reflection calls
+        // them non-builtin while a leading backslash would turn them into a class that is not
+        // there. `static` in particular is what a named constructor returns, which is how
+        // `Template::of('int')::fromString(...)` keeps its specialization for analysis
+        $relative = in_array(strtolower($type->getName()), ['static', 'self', 'parent'], true);
+        $name     = $type->isBuiltin() || $relative ? $type->getName() : '\\' . ltrim($type->getName(), '\\');
 
         return $type->allowsNull() && $type->getName() !== 'mixed' && $type->getName() !== 'null'
             ? '?' . $name
@@ -278,11 +426,13 @@ final class StubGenerator
     }
 
     /**
-     * @param ReflectionClass<object>             $reflection
-     * @param ReflectionProperty|ReflectionMethod $member
+     * @param ReflectionClass<object>                                       $reflection
+     * @param ReflectionProperty|ReflectionMethod|ReflectionClassConstant $member
      */
-    private function isOwnedBy(ReflectionClass $reflection, ReflectionProperty|ReflectionMethod $member): bool
-    {
+    private function isOwnedBy(
+        ReflectionClass $reflection,
+        ReflectionProperty|ReflectionMethod|ReflectionClassConstant $member,
+    ): bool {
         return $member->getDeclaringClass()->getName() === $reflection->getName();
     }
 }
