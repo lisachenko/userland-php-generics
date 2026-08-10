@@ -125,6 +125,13 @@ for you and will not tell you it did not.
 This is the most likely source of false confidence in the package, which is why it is stated this
 bluntly.
 
+**For scalars, there is now a way out.** A
+[native data vector](native-vectors.md) puts the elements in a block of memory instead of an
+array, which moves the element type from a slot the engine cannot check (`array`) to method slots
+it can: `NativeVector<int>` really does reject `1.5`, with the engine's own `TypeError`. It
+covers `int` and `float` today. It is not a general answer — an `array<User>` is still an
+`array` — and it is a different data structure rather than a fix to this entry.
+
 ---
 
 ## Loud: rejected at specialization time
@@ -262,6 +269,27 @@ case, since their type-argument names are long by construction. Tracked upstream
 
 Everything else — method dispatch, class-typed *parameters*, builtin-typed properties — measured
 at parity with a hand-written class.
+
+### A stub-described template does not narrow `of()`
+
+Affects static analysis only; nothing about the run time changes. A placeholder-form template
+declares its type parameter as a native type, which an analyser resolves to a class that does not
+exist, so the package ships a **generated stub** describing the class the way it behaves. Once
+that stub is in your PHPStan configuration, `NativeVector::of('int')` stays
+`class-string<NativeVector<T>>` instead of narrowing to `class-string<NativeVector<int>>`.
+
+**Why.** A stub cannot name this library's own interfaces — stub files are reflected before the
+analysed paths are indexed — so the stubbed class is not a `GenericObject`, and
+`TemplateOfReturnTypeExtension` is registered against exactly that marker (it has to be: `of()`
+is a *trait* method, and a trait is not in any class's ancestry). The two mechanisms are
+therefore exclusive: the stub gives you element types, the marker gives you `of()` narrowing.
+
+**What to do instead.** Spell the specialization where it enters your code and let inference do
+the rest — `/** @var NativeVector<int> $vector */` once, and `$vector->get(0)` is `int`,
+`iterator_to_array($vector)` is `array<int, int>` and `$vector[0]` is `int|null` from there on.
+The setup and the exact `neon` snippet are in
+[`native-vectors.md`](native-vectors.md#static-analysis). Attribute-form templates are unaffected:
+they need no stub, so `of()` narrows for them as it always did.
 
 ---
 

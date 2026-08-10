@@ -73,15 +73,27 @@ needs a reason, not a refactor. Each is explained in full in the README.
     analyses itself with its own `extension.neon` for the same reason: a rule that crashes or a
     generator that drifts fails here rather than in somebody's project.
 
-13. **`Monomorphizer` is the only class that talks to z-engine.** Everything else describes
-    what should happen in this package's own vocabulary (`SubstitutionRequest`, `SlotAddress`);
-    `Monomorphizer` translates that into z-engine's value objects at the single point where the
-    engine is asked. Keeping the dependency in one place is what makes it possible to say
-    exactly when engine state is touched. Two corollaries: z-engine is consumed through its
-    documented API only — never `Core::$executor`/`Core::$compiler`, never a method marked
-    `@internal` — and nothing here re-derives z-engine's own environment rules. The one
-    sanctioned exception outside `Monomorphizer` is `EngineCapabilities`, whose
-    `class_exists()` on a public z-engine class name is deliberate feature detection.
+13. **`Monomorphizer` is the only class that talks to z-engine for *specialization*.**
+    Everything else describes what should happen in this package's own vocabulary
+    (`SubstitutionRequest`, `SlotAddress`); `Monomorphizer` translates that into z-engine's
+    value objects at the single point where the engine is asked. Keeping the dependency in one
+    place is what makes it possible to say exactly when engine state is touched. Two
+    corollaries: z-engine is consumed through its documented API only — never
+    `Core::$executor`/`Core::$compiler`, never a method marked `@internal` — and nothing here
+    re-derives z-engine's own environment rules. The one sanctioned exception for feature
+    detection is `EngineCapabilities`, whose `class_exists()` on a public z-engine class name
+    is deliberate.
+
+    **Amended (maintainer-directed):** `Lisachenko\Generics\Native\` is the *second* sanctioned
+    touchpoint, and the only one that is not about specialization at all — a native vector's
+    hot path is memory access, which has nothing to translate into `SubstitutionRequest` terms.
+    It may use `ZEngine\Type\StringEntry` (including `getRawValue()`, which z-engine's own
+    AGENTS discourages for dependents: the maintainer sanctioned consuming the existing API
+    here rather than adding a class to z-engine) and `ZEngine\Core::cast`, and nothing else.
+    Both stay confined to `NativeVector`'s private low-level methods — `acquire()` is the only
+    place in the package outside `Monomorphizer` where FFI is reached for — so the same
+    property still holds: you can name every line that touches the engine. Adding a third
+    touchpoint is a design decision, not a refactor.
 
 14. **Nothing in this package boots the engine.** Z-Engine initializes itself from its Composer
     bootstrap, including during the `opcache.preload` stage, so `require vendor/autoload.php`
@@ -184,7 +196,7 @@ hand-written message at the call site. Add a factory rather than an inline
 ## 9. Conventional commits
 
 See [conventionalcommits.org](https://www.conventionalcommits.org/). Common scopes here: `runtime`,
-`template`, `type`, `naming`, `phpstan`, `bench`, `ci`, `docs`.
+`template`, `type`, `naming`, `native`, `phpstan`, `bench`, `ci`, `docs`.
 
 ```
 feat(runtime): reify generic templates through class specialization
@@ -197,6 +209,7 @@ test(template): cover promoted properties producing two slots
 
 ```
 src/Attribute/    the template and slot attributes users write
+src/Native/       NativeVector - the one shipped template, and the second engine touchpoint
 src/Template/     parsing a template class into a TemplateDefinition
 src/Type/         type-argument grammar, validation and resolution
 src/Naming/       specialized class-name mangling and parsing
@@ -211,8 +224,8 @@ extension.neon    wires the extension up, auto-loaded by phpstan/extension-insta
 benchmarks/       the monomorphization cost harness
 examples/         runnable, and covered by a test that runs them
 preload.php       opcache.preload entry point - templates yes, specializations never
-docs/             design.md, limitations.md, long-running.md, static-analysis.md
-                  and the generated benchmarks.md
+docs/             design.md, limitations.md, long-running.md, static-analysis.md,
+                  native-vectors.md and the generated benchmarks.md
 tests/phpstan/generated/  committed generator output - regenerate, never edit
 ```
 
