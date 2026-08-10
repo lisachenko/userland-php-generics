@@ -14,3 +14,7 @@ declare(strict_types=1);
 namespace Lisachenko\Generics\Fixture;
 
 class T {}
+
+namespace Lisachenko\Generics\Native;
+
+class T {}

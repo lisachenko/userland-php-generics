@@ -54,8 +54,8 @@
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "test:analysis": "phpunit --testsuite analysis",
-        "stubs:generate": "php bin/generics-stubs --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox'",
-        "stubs:check": "php bin/generics-stubs --check --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox'",
+        "stubs:generate": "php bin/generics-stubs --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox' 'Lisachenko\\Generics\\Native\\NativeVector'",
+        "stubs:check": "php bin/generics-stubs --check --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox' 'Lisachenko\\Generics\\Native\\NativeVector'",
         "test:preload": "phpunit --filter PreloadTest"
     },
     "scripts-descriptions": {
@@ -67,7 +67,7 @@
         "cs:check": "Check coding standards without fixing",
         "cs:fix": "Fix coding standards",
         "test:analysis": "Run the PHPStan extension tests, which need no engine",
-        "stubs:generate": "Regenerate the committed PHPStan stubs for the placeholder-form fixtures",
+        "stubs:generate": "Regenerate the committed PHPStan stubs for the placeholder-form templates",
         "stubs:check": "Fail if the committed PHPStan stubs no longer match the generator",
         "test:preload": "Boot preload.php in a child process; must run, never silently skip"
     },

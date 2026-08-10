@@ -11,6 +11,11 @@ parameters:
         - tests
         - benchmarks
     excludePaths:
+        analyseAndScan:
+            # The one placeholder-form template that ships in src/: its `T` slots are the same
+            # fiction the fixtures below declare, so analysing the declaration reports the
+            # fiction. It is described properly through stubFiles, exactly like Box.
+            - src/Native/NativeVector.php
         analyse:
             # Analysis-only declarations, deliberately outside the PSR-4 layout
             - tests/phpstan
@@ -37,4 +42,5 @@ parameters:
     stubFiles:
         - tests/phpstan/generated/box-stub.php
         - tests/phpstan/generated/attributebox-stub.php
+        - tests/phpstan/generated/nativevector-stub.php
     treatPhpDocTypesAsCertain: false
