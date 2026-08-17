@@ -191,6 +191,13 @@ jobs:
     # -d given here. The short version: ClassSpecializer defers some frees to request end by
     # design, and the leak reporter counts exactly those. The Zend assertions, which are what
     # catch a copy freeing a block its template still owns, stay on.
+    env:
+      IMAGE_TAG: generics-php:debug
+      # The image's identity, and therefore the identity of its cache entry: runner OS and
+      # architecture, thread safety, PHP minor, the recipe, and the base image it starts from.
+      # Only the NTS flavour is built today; a ZTS variant would arrive as its own build arg
+      # and its own value here, so the two could never be served the same tarball.
+      PHP_THREAD_SAFETY: nts
     steps:
       - uses: actions/checkout@v7
 
@@ -205,17 +212,63 @@ jobs:
 
       - uses: ramsey/composer-install@v4
 
+      # Rebuilding PHP from source costs minutes of runner time on every single run, and the
+      # result only changes when the recipe or the base image changes - so `php:<minor>-cli`'s
+      # own digest is what expires the cache, not a date rotation that would either rebuild for
+      # nothing or serve a PHP patch older than the rest of the matrix runs on. imagetools asks
+      # the registry for the manifest, so this costs one API call rather than the layers a hit
+      # exists to avoid downloading.
+      - name: Resolve the base image digest
+        id: base-image
+        run: |
+          image="php:${{ matrix.php }}-cli"
+          digest="$(docker buildx imagetools inspect "$image" --raw | sha256sum | cut -d' ' -f1)"
+          [ "${#digest}" -eq 64 ] \
+            || { echo "::error::No digest resolved for ${image} (got '${digest}') - the cache key would not identify a build"; exit 1; }
+          echo "${image} is sha256:${digest}"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      # No restore-keys, deliberately: a near-miss would run the destructive group against an
+      # image built from a different recipe or a different base, which is the one thing this job
+      # cannot be relaxed about. Either the exact build is in the cache or it is rebuilt.
+      # Entries written by a main-branch run are readable from every PR branch, so the rebuild
+      # is normally paid once per recipe/base change instead of once per pull request.
+      - name: Restore the debug PHP image
+        id: image-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/php-debug-image/image.tar
+          key: php-debug-image-${{ runner.os }}-${{ runner.arch }}-${{ env.PHP_THREAD_SAFETY }}-${{ matrix.php }}-${{ hashFiles('tools/docker/php-debug.Dockerfile') }}-${{ steps.base-image.outputs.digest }}
+
+      # Saved through a temporary name and renamed into place: the entry is written by a post
+      # step that can still run after a step failed, and a half-written tarball stored under the
+      # exact key would poison every later run. If `docker save` dies, the cached path simply
+      # does not exist yet and nothing is stored.
       - name: Build the debug PHP image
+        if: steps.image-cache.outputs.cache-hit != 'true'
         run: |
           docker build \
             -f tools/docker/php-debug.Dockerfile \
             --build-arg "PHP_VERSION=${{ matrix.php }}" \
-            -t generics-php:debug .
+            -t "$IMAGE_TAG" .
+          mkdir -p ~/.cache/php-debug-image
+          docker save "$IMAGE_TAG" -o ~/.cache/php-debug-image/image.tar.part
+          mv ~/.cache/php-debug-image/image.tar.part ~/.cache/php-debug-image/image.tar
 
-      - name: Confirm the image really is a debug build
+      - name: Load the cached debug PHP image
+        if: steps.image-cache.outputs.cache-hit == 'true'
+        run: docker load -i ~/.cache/php-debug-image/image.tar
+
+      # This check predates the cache and matters more now: it is the gate on whatever the cache
+      # handed back, not just on a build that happened seconds ago. The minor is asserted too,
+      # so an image restored under a key that does not describe it cannot pass quietly.
+      - name: Confirm the image really is the debug build this job asked for
         run: |
-          docker run --rm generics-php:debug php -r 'exit(PHP_DEBUG ? 0 : 1);' \
+          docker run --rm "$IMAGE_TAG" php -r 'exit(PHP_DEBUG ? 0 : 1);' \
             || { echo "::error::PHP_DEBUG is not set - the leak gate would be inert"; exit 1; }
+          minor="$(docker run --rm "$IMAGE_TAG" php -r 'echo PHP_MAJOR_VERSION, ".", PHP_MINOR_VERSION;')"
+          [ "$minor" = "${{ matrix.php }}" ] \
+            || { echo "::error::The image reports PHP ${minor}, but this job runs the ${{ matrix.php }} matrix leg"; exit 1; }
 
       # The group being empty is the bug this job exists to prevent coming back: PHPUnit exits
       # non-zero with "No tests executed!", which reads like an ordinary failure. Counting the
@@ -223,7 +276,7 @@ jobs:
       - name: Run the destructive group with process isolation
         run: |
           mkdir -p var
-          docker run --rm -v "$PWD:/app" -w /app generics-php:debug \
+          docker run --rm -v "$PWD:/app" -w /app "$IMAGE_TAG" \
             vendor/bin/phpunit --group internal --process-isolation --log-junit /app/var/internal.xml
           count=$(grep -o 'tests="[0-9]*"' var/internal.xml | head -1 | grep -o '[0-9]*')
           skipped=$(grep -o 'skipped="[0-9]*"' var/internal.xml | head -1 | grep -o '[0-9]*')
