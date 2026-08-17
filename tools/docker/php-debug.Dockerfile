@@ -10,8 +10,12 @@
 # still live, and the failure they are looking for - a copy releasing a block the template still
 # owns - is invisible on a release build until something much later crashes.
 #
-# Built inline (with layer caching) by the tests-internal-debug CI job and run in place - no
-# registry involved. Composer runs on the host; this image only needs to *run* PHPUnit, so it
+# Built inline by the tests-internal-debug CI job and run in place - no registry involved. The
+# build is a full PHP compile, so that job caches the finished image as a `docker save` tarball
+# through actions/cache, keyed on OS, architecture, thread safety, PHP minor, the hash of THIS
+# file and the digest of the base image. Editing anything here therefore invalidates the cache
+# by itself - there is no cache to bump by hand, and no way to leave a stale image in service.
+# Composer runs on the host; this image only needs to *run* PHPUnit, so it
 # carries FFI (built in - a debug PHP cannot load the base image's release-ABI ffi.so) plus the
 # extensions PHPUnit needs at runtime (dom/xml/xmlwriter from libxml, mbstring). Opcache is built
 # and loaded but inactive, which is what lets the preload tests switch it on per invocation.

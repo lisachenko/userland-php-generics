@@ -171,6 +171,15 @@ inside a `--enable-debug` container built from `tools/docker/php-debug.Dockerfil
 mistake those tests look for - a specialization releasing a block its template still shares -
 is an assertion failure on a debug build and a crash somewhere unrelated on a release one.
 
+That container is a full PHP compile, so CI caches the finished image as a `docker save` tarball
+through `actions/cache`, keyed on runner OS and architecture, thread safety (`nts` today), PHP
+minor, the hash of the Dockerfile and the digest of the `php:<minor>-cli` base image. Every input
+that can change the image is in the key and there are no `restore-keys`, so the cache is never
+bumped by hand: edit the Dockerfile and the next run rebuilds, leave it alone and the next run
+loads. If a build ever has to be forced, change the Dockerfile or wait for the base image to move
+- do not add a fallback key, because a near-miss would run the destructive group against an image
+nobody described.
+
 **Do not turn `report_memleaks` on for that job.** It was tried, and it fails: `ClassSpecializer`
 documents several of its FFI allocations as reclaimed by the request allocator at request end
 rather than freed explicitly, and the leak reporter counts precisely those. z-engine settled this
