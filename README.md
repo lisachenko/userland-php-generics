@@ -214,8 +214,8 @@ autoloader is a side effect a library should not impose.
 - `ext-ffi` with `ffi.enable=1`
 - `opcache.jit=off` (the JIT rewrites the executor internals z-engine hooks into)
 - [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — the
-  `8.4.x-dev || 8.5.x-dev` constraint lets composer resolve the z-engine line matching your
-  PHP minor (the `8.4` branch on PHP 8.4, `master` on PHP 8.5); z-engine owns all
+  `~8.4.2 || ~8.5.0` constraint lets composer resolve the stable z-engine release line
+  matching your PHP minor (`8.4.x` on PHP 8.4, `8.5.x` on PHP 8.5); z-engine owns all
   version-dependent header complexity, so this package never deals with it
 
 ```bash
