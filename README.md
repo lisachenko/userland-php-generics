@@ -259,7 +259,7 @@ Every template must:
 `opcache.save_comments=0` — a perfectly normal production setting — `doc_comment` is `NULL`, so
 a doc-comment-driven runtime would break in exactly the environment people deploy to. The
 `@template` tag stays the source of truth for static analysis; the runtime never reads one, and
-a CI job runs the whole suite with `save_comments=0` to keep it that way.
+a CI job runs the whole engine suite with `save_comments=0` to keep it that way.
 
 ### The two forms
 

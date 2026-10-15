@@ -56,7 +56,7 @@
         "test:analysis": "phpunit --testsuite analysis",
         "stubs:generate": "php bin/generics-stubs --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox' 'Lisachenko\\Generics\\Native\\NativeVector'",
         "stubs:check": "php bin/generics-stubs --check --out=tests/phpstan/generated 'Lisachenko\\Generics\\Fixture\\Box' 'Lisachenko\\Generics\\Fixture\\AttributeBox' 'Lisachenko\\Generics\\Native\\NativeVector'",
-        "test:preload": "phpunit --filter PreloadTest"
+        "test:preload": "phpunit --testsuite engine --filter PreloadTest"
     },
     "scripts-descriptions": {
         "test": "Run the test suite (destructive internal group excluded)",

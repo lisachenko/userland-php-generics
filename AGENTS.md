@@ -142,8 +142,10 @@ therefore breaks in exactly the environment people deploy to.
 > **Attributes are the runtime source of truth. Doc comments are the static-analysis source of
 > truth.** The two are kept in sync by a PHPStan rule, never by the runtime.
 
-The `tests-opcache` CI job runs the whole suite with `opcache.save_comments=0`. It is not optional
-and it is not allowed to be skipped.
+The `tests-opcache` CI job runs the whole engine suite with `opcache.save_comments=0`. It is not
+optional and it is not allowed to be skipped. The analysis suite is left out on purpose: it is
+PHPStan's runtime, not ours, and PHPStan's own DI container reads `@property` tags and cannot boot
+without doc comments.
 
 ## 3. Validate before you touch the engine
 

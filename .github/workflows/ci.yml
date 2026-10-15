@@ -67,8 +67,12 @@ jobs:
 
       - uses: ramsey/composer-install@v4
 
-      - name: Run test suite without doc comments
-        run: composer test
+      # The engine suite only: it is the runtime path this job guards. The analysis suite is
+      # PHPStan's, which needs doc comments by design - its DI container (Nette) reads @property
+      # tags off its own classes and cannot boot without them - and it already runs in the
+      # release job and the FFI-disabled analysis job.
+      - name: Run the engine suite without doc comments
+        run: composer test -- --testsuite engine
 
       # PreloadTest skips itself when opcache is absent, and this is the one job where opcache
       # is guaranteed present - so a silent skip here would mean preload.php goes unexecuted
