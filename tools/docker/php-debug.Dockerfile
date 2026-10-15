@@ -21,6 +21,9 @@
 # and loaded but inactive, which is what lets the preload tests switch it on per invocation.
 # Build locally with:
 #   docker build -f tools/docker/php-debug.Dockerfile -t generics-php:debug .
+# PHP_VERSION is the base image tag prefix: `8.5` builds from php:8.5-cli. A pre-release minor is
+# only published as php:<minor>-rc-cli, so pass `--build-arg PHP_VERSION=8.6-rc` for it (CI picks
+# the tag itself). That image is ZTS, but configure below rebuilds NTS from its source either way.
 ARG PHP_VERSION=8.4
 FROM php:${PHP_VERSION}-cli AS build
 

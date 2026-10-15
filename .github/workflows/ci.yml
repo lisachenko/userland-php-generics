@@ -7,18 +7,26 @@ on:
   pull_request:
 
 # Engine structures are version-specific and z-engine tracks one PHP minor per
-# release line, but the "~8.4.2 || ~8.5.0" constraint lets composer resolve
-# the stable line matching each runner's PHP - so this package runs on
-# PHP 8.4 and 8.5 in parallel, and every engine-touching job runs against
-# both minors.
+# release line, but the "~8.4.2 || ~8.5.0 || ~8.6.0@dev" constraint lets
+# composer resolve the line matching each runner's PHP - so this package runs
+# on PHP 8.4, 8.5 and 8.6 in parallel, and every engine-touching job runs
+# against every minor.
+#
+# PHP 8.6 is pre-release: z-engine has no stable 8.6 tag yet, so that leg
+# resolves its 8.6.x-dev line (master), and both the interpreter and z-engine's
+# definitions move with every RC. Its legs are therefore non-blocking
+# (continue-on-error) - a red 8.6 leg is a signal to look at, not a gate. Once
+# PHP 8.6.0 is GA and z-engine tags 8.6.0, drop the `@dev` flag and the
+# continue-on-error lines and the leg becomes as binding as the others.
 jobs:
   tests:
     name: Tests (release, NTS, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     steps:
       - uses: actions/checkout@v7
 
@@ -38,10 +46,11 @@ jobs:
   tests-opcache:
     name: Tests (opcache, save_comments=0, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     steps:
       - uses: actions/checkout@v7
 
@@ -73,10 +82,11 @@ jobs:
   benchmarks-smoke:
     name: Benchmarks (smoke, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     steps:
       - uses: actions/checkout@v7
 
@@ -98,10 +108,11 @@ jobs:
   analysis-tests:
     name: PHPStan extension tests (FFI disabled, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     steps:
       - uses: actions/checkout@v7
 
@@ -121,39 +132,14 @@ jobs:
       - name: Run the analysis suite
         run: composer test:analysis
 
-  # The analysis layer needs no engine, so it is the one thing that can (and should)
-  # already run on the NEXT minor: an early warning for parser/reflection changes, not
-  # a support statement. The engine-touching jobs stay off nightly until z-engine
-  # bundles definitions for it.
-  analysis-tests-nightly:
-    name: PHPStan extension tests (PHP 8.6 nightly, experimental)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.6'
-          ini-values: ffi.enable=0
-          coverage: none
-
-      # z-engine's platform constraint stops at the minors it has definitions for; the
-      # analysis suite never boots it, so installing past the constraint is safe here.
-      - name: Install dependencies (ignore the PHP platform requirement)
-        run: composer install --no-interaction --no-progress --ignore-platform-req=php+
-
-      - name: Run the analysis suite
-        run: composer test:analysis
-
   generated-stubs:
     name: Generated stubs are up to date (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     steps:
       - uses: actions/checkout@v7
 
@@ -176,10 +162,11 @@ jobs:
   tests-internal-debug:
     name: Internal group (debug build, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     # The destructive eviction tests run destroy_zend_class() over a copied class entry while
     # its template is still live. On a release build a copy that released a block the template
     # still owns usually survives the test and crashes somewhere unrelated later; on a
@@ -218,14 +205,27 @@ jobs:
       # nothing or serve a PHP patch older than the rest of the matrix runs on. imagetools asks
       # the registry for the manifest, so this costs one API call rather than the layers a hit
       # exists to avoid downloading.
+      #
+      # While a minor is pre-release Docker publishes only the `php:<minor>-rc-cli` family (which
+      # also covers betas), so the stable tag is tried first and the -rc one is the fallback; the
+      # winning tag is handed to the build step. At GA the stable tag appears, its digest differs,
+      # and the cache expires on its own. The -rc image is a ZTS build, which does not matter
+      # here: the Dockerfile re-configures PHP from the bundled source, and that is NTS.
       - name: Resolve the base image digest
         id: base-image
         run: |
-          image="php:${{ matrix.php }}-cli"
-          digest="$(docker buildx imagetools inspect "$image" --raw | sha256sum | cut -d' ' -f1)"
-          [ "${#digest}" -eq 64 ] \
+          tag="${{ matrix.php }}"
+          if ! manifest="$(docker buildx imagetools inspect "php:${tag}-cli" --raw)"; then
+            tag="${{ matrix.php }}-rc"
+            echo "php:${{ matrix.php }}-cli is not published yet - falling back to php:${tag}-cli"
+            manifest="$(docker buildx imagetools inspect "php:${tag}-cli" --raw)"
+          fi
+          image="php:${tag}-cli"
+          digest="$(printf '%s' "$manifest" | sha256sum | cut -d' ' -f1)"
+          [ -n "$manifest" ] && [ "${#digest}" -eq 64 ] \
             || { echo "::error::No digest resolved for ${image} (got '${digest}') - the cache key would not identify a build"; exit 1; }
           echo "${image} is sha256:${digest}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       # No restore-keys, deliberately: a near-miss would run the destructive group against an
@@ -249,7 +249,7 @@ jobs:
         run: |
           docker build \
             -f tools/docker/php-debug.Dockerfile \
-            --build-arg "PHP_VERSION=${{ matrix.php }}" \
+            --build-arg "PHP_VERSION=${{ steps.base-image.outputs.tag }}" \
             -t "$IMAGE_TAG" .
           mkdir -p ~/.cache/php-debug-image
           docker save "$IMAGE_TAG" -o ~/.cache/php-debug-image/image.tar.part
@@ -293,10 +293,11 @@ jobs:
   static-analysis:
     name: PHPStan (level max, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        php: ['8.4', '8.5', '8.6']
     steps:
       - uses: actions/checkout@v7
 

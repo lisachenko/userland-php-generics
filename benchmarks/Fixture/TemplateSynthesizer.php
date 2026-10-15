@@ -35,9 +35,10 @@ final class TemplateSynthesizer
      * Where every synthesized class lands
      *
      * A namespace matters here: the placeholder form keys on a type's short name, so `?T`
-     * inside this namespace is the fictional `...\Generated\T` and reads back as `T`.
+     * inside this namespace is the fictional `...\Generated\T` and reads back as `T`. Not named
+     * `NAMESPACE`: PHP 8.6 deprecates a class constant called that.
      */
-    public const NAMESPACE = 'Lisachenko\\Generics\\Benchmark\\Generated';
+    public const TARGET_NAMESPACE = 'Lisachenko\\Generics\\Benchmark\\Generated';
 
     /**
      * Process-wide, not per-instance: a class name is claimed for the whole request, so two
@@ -78,7 +79,7 @@ final class TemplateSynthesizer
         ));
 
         /** @var class-string */
-        return self::NAMESPACE . '\\' . $shortName;
+        return self::TARGET_NAMESPACE . '\\' . $shortName;
     }
 
     /**
@@ -118,7 +119,7 @@ final class TemplateSynthesizer
         ));
 
         /** @var class-string */
-        return self::NAMESPACE . '\\' . $shortName;
+        return self::TARGET_NAMESPACE . '\\' . $shortName;
     }
 
     /**
@@ -150,7 +151,7 @@ final class TemplateSynthesizer
         ));
 
         /** @var class-string */
-        return self::NAMESPACE . '\\' . $shortName;
+        return self::TARGET_NAMESPACE . '\\' . $shortName;
     }
 
     /**
@@ -182,7 +183,7 @@ final class TemplateSynthesizer
         $this->declare(sprintf('final class %s {}', $shortName));
 
         /** @var class-string */
-        return self::NAMESPACE . '\\' . $shortName;
+        return self::TARGET_NAMESPACE . '\\' . $shortName;
     }
 
     /**
@@ -201,7 +202,7 @@ final class TemplateSynthesizer
         $this->declare(sprintf('final class %s {}', $shortName));
 
         /** @var class-string */
-        return self::NAMESPACE . '\\' . $shortName;
+        return self::TARGET_NAMESPACE . '\\' . $shortName;
     }
 
     /**
@@ -277,6 +278,6 @@ final class TemplateSynthesizer
 
     private function declare(string $source): void
     {
-        eval(sprintf('namespace %s; %s', self::NAMESPACE, $source));
+        eval(sprintf('namespace %s; %s', self::TARGET_NAMESPACE, $source));
     }
 }
