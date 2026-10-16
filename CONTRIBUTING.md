@@ -8,9 +8,10 @@ about the engine itself.
 ## Before you start
 
 - **Run only supported PHP minors.** Engine struct layouts are version-specific; z-engine tracks
-  one minor per release line, and the `~8.4.2 || ~8.5.0` constraint makes composer resolve the
-  stable line matching your PHP, so this package supports both minors in parallel. Anything
-  newer (8.6 nightly) installs but cannot touch the engine yet.
+  one minor per release line, and the `~8.4.2 || ~8.5.0 || ~8.6.0@dev` constraint makes
+  composer resolve the line matching your PHP, so this package supports all three minors in
+  parallel. PHP 8.6 is pre-release: it resolves z-engine's `8.6.x-dev` line and its CI legs are
+  non-blocking until 8.6.0 ships.
 - **Develop against a debug build** (`--enable-debug`, FFI on). It turns silent memory corruption
   into loud assertion failures.
 - FFI must be enabled (`ffi.enable=1`) and the JIT disabled (`opcache.jit=off`).
@@ -50,7 +51,7 @@ PHP build, so you can work on the PHPStan extension anywhere.
 
 ## Pull request checklist
 
-- [ ] `composer test` passes on every supported PHP minor (CI runs 8.4 and 8.5)
+- [ ] `composer test` passes on every supported PHP minor (CI runs 8.4, 8.5 and 8.6)
 - [ ] `composer phpstan` and `composer cs:check` are green
 - [ ] `composer stubs:check` is green if you touched a template or the generator
 - [ ] tests added or updated, with unique specialized class names

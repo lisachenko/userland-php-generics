@@ -109,13 +109,20 @@ needs a reason, not a refactor. Each is explained in full in the README.
 ## 1. Version matching is still non-negotiable
 
 Engine struct layouts are version-specific, and z-engine tracks **one PHP minor per release
-line** (`8.4.x` for PHP 8.4, `8.5.x` for PHP 8.5). This package supports **PHP 8.4 and 8.5 in
-parallel** by declaring z-engine as `~8.4.2 || ~8.5.0`, so composer resolves the stable line
-matching the running platform — z-engine owns all version-dependent header complexity, and CI
-exercises the whole matrix. The rule is unchanged: never run the suite on a minor the
-resolved z-engine does not target, and never try to defeat `Core::init()`'s guard.
-PHP 8.6 nightly may `composer install` (the analysis layer works there), but nothing that
-touches the engine is supported until a z-engine line for 8.6 exists.
+line** (`8.4.x` for PHP 8.4, `8.5.x` for PHP 8.5, `8.6.x-dev` for PHP 8.6). This package
+supports **PHP 8.4, 8.5 and 8.6 in parallel** by declaring z-engine as
+`~8.4.2 || ~8.5.0 || ~8.6.0@dev`, so composer resolves the line matching the running platform —
+z-engine owns all version-dependent header complexity, and CI exercises the whole matrix. The
+rule is unchanged: never run the suite on a minor the resolved z-engine does not target, and
+never try to defeat `Core::init()`'s guard.
+
+PHP 8.6 is **pre-release** support. z-engine has no stable 8.6 tag yet, so its 8.6 line is the
+`master` branch (`8.6.x-dev`); the `@dev` flag lets this repository's own installs reach it,
+and `"prefer-stable": true` keeps 8.4 and 8.5 on their stable tags rather than drifting onto
+`8.4.x-dev`/`8.5.x-dev`. The 8.6 CI legs are `continue-on-error`: the interpreter and the
+definitions both move with every RC, so a red 8.6 leg is a signal, not a gate. When PHP 8.6.0
+is GA and z-engine tags 8.6.0, drop the `@dev` flag and the `continue-on-error` lines in one
+change.
 
 Running anything that touches the engine requires:
 
@@ -135,8 +142,10 @@ therefore breaks in exactly the environment people deploy to.
 > **Attributes are the runtime source of truth. Doc comments are the static-analysis source of
 > truth.** The two are kept in sync by a PHPStan rule, never by the runtime.
 
-The `tests-opcache` CI job runs the whole suite with `opcache.save_comments=0`. It is not optional
-and it is not allowed to be skipped.
+The `tests-opcache` CI job runs the whole engine suite with `opcache.save_comments=0`. It is not
+optional and it is not allowed to be skipped. The analysis suite is left out on purpose: it is
+PHPStan's runtime, not ours, and PHPStan's own DI container reads `@property` tags and cannot boot
+without doc comments.
 
 ## 3. Validate before you touch the engine
 

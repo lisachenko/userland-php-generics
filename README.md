@@ -8,7 +8,7 @@
 real class whose `int` is enforced by the Zend Engine itself — the same `TypeError` you get
 from a hand-written class, on a class that did not exist a microsecond ago.**
 
-[![PHP Version](https://img.shields.io/badge/php-8.4%20%7C%208.5-8892BF.svg)](https://www.php.net/)
+[![PHP Version](https://img.shields.io/badge/php-8.4%20%7C%208.5%20%7C%208.6%20(beta)-8892BF.svg)](https://www.php.net/)
 [![License](https://img.shields.io/packagist/l/lisachenko/userland-php-generics.svg)](LICENSE)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](https://phpstan.org/)
 
@@ -210,17 +210,32 @@ autoloader is a side effect a library should not impose.
 
 ## Requirements and installation
 
-- PHP 8.4 or 8.5 (supported in parallel), NTS, x86-64
+- PHP 8.4 or 8.5 (supported in parallel), NTS, x86-64 — PHP 8.6 is supported as a
+  pre-release while it is in beta/RC, see below
 - `ext-ffi` with `ffi.enable=1`
 - `opcache.jit=off` (the JIT rewrites the executor internals z-engine hooks into)
 - [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — the
-  `~8.4.2 || ~8.5.0` constraint lets composer resolve the stable z-engine release line
-  matching your PHP minor (`8.4.x` on PHP 8.4, `8.5.x` on PHP 8.5); z-engine owns all
-  version-dependent header complexity, so this package never deals with it
+  `~8.4.2 || ~8.5.0 || ~8.6.0@dev` constraint lets composer resolve the z-engine release line
+  matching your PHP minor (`8.4.x` on PHP 8.4, `8.5.x` on PHP 8.5, `8.6.x-dev` on PHP 8.6);
+  z-engine owns all version-dependent header complexity, so this package never deals with it
 
 ```bash
 composer require --dev lisachenko/userland-php-generics
 ```
+
+### PHP 8.6 (pre-release)
+
+z-engine carries definitions for PHP 8.6 on its `8.6.x-dev` line (its `master` branch), but
+there is no stable 8.6 tag until PHP 8.6.0 itself is released. Composer only lets a *root*
+package opt into a dev dependency, so on PHP 8.6 allow it in your own `composer.json` first:
+
+```bash
+composer require --dev lisachenko/z-engine:8.6.x-dev lisachenko/userland-php-generics
+```
+
+Treat it as a preview: the interpreter's internals and z-engine's definitions can still move
+between RCs, so track the latest RC and update both together. Once z-engine tags 8.6.0 the
+explicit z-engine requirement can be dropped again.
 
 ```php
 use Lisachenko\Generics\Generic;
@@ -244,7 +259,7 @@ Every template must:
 `opcache.save_comments=0` — a perfectly normal production setting — `doc_comment` is `NULL`, so
 a doc-comment-driven runtime would break in exactly the environment people deploy to. The
 `@template` tag stays the source of truth for static analysis; the runtime never reads one, and
-a CI job runs the whole suite with `save_comments=0` to keep it that way.
+a CI job runs the whole engine suite with `save_comments=0` to keep it that way.
 
 ### The two forms
 
