@@ -116,13 +116,12 @@ z-engine owns all version-dependent header complexity, and CI exercises the whol
 rule is unchanged: never run the suite on a minor the resolved z-engine does not target, and
 never try to defeat `Core::init()`'s guard.
 
-PHP 8.6 is **pre-release** support. z-engine has no stable 8.6 tag yet, so its 8.6 line is the
-`master` branch (`8.6.x-dev`); the `@dev` flag lets this repository's own installs reach it,
-and `"prefer-stable": true` keeps 8.4 and 8.5 on their stable tags rather than drifting onto
-`8.4.x-dev`/`8.5.x-dev`. The 8.6 CI legs are `continue-on-error`: the interpreter and the
-definitions both move with every RC, so a red 8.6 leg is a signal, not a gate. When PHP 8.6.0
-is GA and z-engine tags 8.6.0, drop the `@dev` flag and the `continue-on-error` lines in one
-change.
+PHP 8.6 is GA and **fully supported**: its CI legs are required, exactly like the 8.4 and 8.5
+ones — never mark them `continue-on-error`. z-engine has no stable 8.6 tag yet, so its 8.6 line
+is the `master` branch (`8.6.x-dev`); the `@dev` flag lets this repository's own installs reach
+it, and `"prefer-stable": true` keeps 8.4 and 8.5 on their stable tags rather than drifting onto
+`8.4.x-dev`/`8.5.x-dev` (and moves 8.6 onto the 8.6.0 tag by itself once it exists). When
+z-engine tags 8.6.0, drop the `@dev` flag.
 
 Running anything that touches the engine requires:
 

@@ -8,7 +8,7 @@
 real class whose `int` is enforced by the Zend Engine itself — the same `TypeError` you get
 from a hand-written class, on a class that did not exist a microsecond ago.**
 
-[![PHP Version](https://img.shields.io/badge/php-8.4%20%7C%208.5%20%7C%208.6%20(beta)-8892BF.svg)](https://www.php.net/)
+[![PHP Version](https://img.shields.io/badge/php-8.4%20%7C%208.5%20%7C%208.6-8892BF.svg)](https://www.php.net/)
 [![License](https://img.shields.io/packagist/l/lisachenko/userland-php-generics.svg)](LICENSE)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](https://phpstan.org/)
 
@@ -210,8 +210,8 @@ autoloader is a side effect a library should not impose.
 
 ## Requirements and installation
 
-- PHP 8.4 or 8.5 (supported in parallel), NTS, x86-64 — PHP 8.6 is supported as a
-  pre-release while it is in beta/RC, see below
+- PHP 8.4, 8.5 or 8.6 (supported in parallel), NTS, x86-64 — on PHP 8.6 see the note below
+  until z-engine tags 8.6.0
 - `ext-ffi` with `ffi.enable=1`
 - `opcache.jit=off` (the JIT rewrites the executor internals z-engine hooks into)
 - [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — the
@@ -223,19 +223,18 @@ autoloader is a side effect a library should not impose.
 composer require --dev lisachenko/userland-php-generics
 ```
 
-### PHP 8.6 (pre-release)
+### PHP 8.6
 
-z-engine carries definitions for PHP 8.6 on its `8.6.x-dev` line (its `master` branch), but
-there is no stable 8.6 tag until PHP 8.6.0 itself is released. Composer only lets a *root*
-package opt into a dev dependency, so on PHP 8.6 allow it in your own `composer.json` first:
+PHP 8.6 is supported on the same footing as 8.4 and 8.5: its CI legs are required. z-engine
+carries the 8.6 definitions on its `8.6.x-dev` line (its `master` branch) and has not tagged
+8.6.0 yet. Composer only lets a *root* package opt into a dev dependency, so on PHP 8.6 allow it
+in your own `composer.json` first:
 
 ```bash
 composer require --dev lisachenko/z-engine:8.6.x-dev lisachenko/userland-php-generics
 ```
 
-Treat it as a preview: the interpreter's internals and z-engine's definitions can still move
-between RCs, so track the latest RC and update both together. Once z-engine tags 8.6.0 the
-explicit z-engine requirement can be dropped again.
+Once z-engine tags 8.6.0 the explicit z-engine requirement can be dropped again.
 
 ```php
 use Lisachenko\Generics\Generic;
