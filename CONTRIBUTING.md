@@ -8,10 +8,9 @@ about the engine itself.
 ## Before you start
 
 - **Run only supported PHP minors.** Engine struct layouts are version-specific; z-engine tracks
-  one minor per release line, and the `~8.4.2 || ~8.5.0 || ~8.6.0@dev` constraint makes
+  one minor per release line, and the `~8.4.2 || ~8.5.0 || ~8.6.0` constraint makes
   composer resolve the line matching your PHP, so this package supports all three minors in
-  parallel. PHP 8.6 is pre-release: it resolves z-engine's `8.6.x-dev` line and its CI legs are
-  non-blocking until 8.6.0 ships.
+  parallel. Every leg is required, 8.6 included.
 - **Develop against a debug build** (`--enable-debug`, FFI on). It turns silent memory corruption
   into loud assertion failures.
 - FFI must be enabled (`ffi.enable=1`) and the JIT disabled (`opcache.jit=off`).

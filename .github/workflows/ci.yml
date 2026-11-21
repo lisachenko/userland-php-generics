@@ -7,22 +7,17 @@ on:
   pull_request:
 
 # Engine structures are version-specific and z-engine tracks one PHP minor per
-# release line, but the "~8.4.2 || ~8.5.0 || ~8.6.0@dev" constraint lets
+# release line, but the "~8.4.2 || ~8.5.0 || ~8.6.0" constraint lets
 # composer resolve the line matching each runner's PHP - so this package runs
 # on PHP 8.4, 8.5 and 8.6 in parallel, and every engine-touching job runs
 # against every minor.
 #
-# PHP 8.6 is pre-release: z-engine has no stable 8.6 tag yet, so that leg
-# resolves its 8.6.x-dev line (master), and both the interpreter and z-engine's
-# definitions move with every RC. Its legs are therefore non-blocking
-# (continue-on-error) - a red 8.6 leg is a signal to look at, not a gate. Once
-# PHP 8.6.0 is GA and z-engine tags 8.6.0, drop the `@dev` flag and the
-# continue-on-error lines and the leg becomes as binding as the others.
+# PHP 8.6 legs are as binding as the 8.4 and 8.5 ones: none of them is allowed
+# to fail, and all three resolve stable z-engine tags.
 jobs:
   tests:
     name: Tests (release, NTS, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +41,6 @@ jobs:
   tests-opcache:
     name: Tests (opcache, save_comments=0, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +80,6 @@ jobs:
   benchmarks-smoke:
     name: Benchmarks (smoke, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
@@ -112,7 +105,6 @@ jobs:
   analysis-tests:
     name: PHPStan extension tests (FFI disabled, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
@@ -139,7 +131,6 @@ jobs:
   generated-stubs:
     name: Generated stubs are up to date (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
@@ -166,7 +157,6 @@ jobs:
   tests-internal-debug:
     name: Internal group (debug build, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
@@ -297,7 +287,6 @@ jobs:
   static-analysis:
     name: PHPStan (level max, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.php == '8.6' }}
     strategy:
       fail-fast: false
       matrix:
