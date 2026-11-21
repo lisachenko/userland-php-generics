@@ -210,31 +210,17 @@ autoloader is a side effect a library should not impose.
 
 ## Requirements and installation
 
-- PHP 8.4, 8.5 or 8.6 (supported in parallel), NTS, x86-64 — on PHP 8.6 see the note below
-  until z-engine tags 8.6.0
+- PHP 8.4, 8.5 or 8.6 (supported in parallel), NTS, x86-64
 - `ext-ffi` with `ffi.enable=1`
 - `opcache.jit=off` (the JIT rewrites the executor internals z-engine hooks into)
 - [`lisachenko/z-engine`](https://github.com/lisachenko/z-engine) — the
-  `~8.4.2 || ~8.5.0 || ~8.6.0@dev` constraint lets composer resolve the z-engine release line
-  matching your PHP minor (`8.4.x` on PHP 8.4, `8.5.x` on PHP 8.5, `8.6.x-dev` on PHP 8.6);
+  `~8.4.2 || ~8.5.0 || ~8.6.0` constraint lets composer resolve the stable z-engine release line
+  matching your PHP minor (`8.4.x` on PHP 8.4, `8.5.x` on PHP 8.5, `8.6.x` on PHP 8.6);
   z-engine owns all version-dependent header complexity, so this package never deals with it
 
 ```bash
 composer require --dev lisachenko/userland-php-generics
 ```
-
-### PHP 8.6
-
-PHP 8.6 is supported on the same footing as 8.4 and 8.5: its CI legs are required. z-engine
-carries the 8.6 definitions on its `8.6.x-dev` line (its `master` branch) and has not tagged
-8.6.0 yet. Composer only lets a *root* package opt into a dev dependency, so on PHP 8.6 allow it
-in your own `composer.json` first:
-
-```bash
-composer require --dev lisachenko/z-engine:8.6.x-dev lisachenko/userland-php-generics
-```
-
-Once z-engine tags 8.6.0 the explicit z-engine requirement can be dropped again.
 
 ```php
 use Lisachenko\Generics\Generic;

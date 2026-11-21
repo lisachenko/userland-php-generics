@@ -7,15 +7,13 @@ on:
   pull_request:
 
 # Engine structures are version-specific and z-engine tracks one PHP minor per
-# release line, but the "~8.4.2 || ~8.5.0 || ~8.6.0@dev" constraint lets
+# release line, but the "~8.4.2 || ~8.5.0 || ~8.6.0" constraint lets
 # composer resolve the line matching each runner's PHP - so this package runs
 # on PHP 8.4, 8.5 and 8.6 in parallel, and every engine-touching job runs
 # against every minor.
 #
-# PHP 8.6 is a GA release and its legs are as binding as the 8.4 and 8.5 ones:
-# none of them is allowed to fail. Until z-engine tags 8.6.0 that leg resolves
-# its 8.6.x-dev line (master) through the `@dev` flag; "prefer-stable" moves it
-# to the tag on its own as soon as one exists, and the flag can then be dropped.
+# PHP 8.6 legs are as binding as the 8.4 and 8.5 ones: none of them is allowed
+# to fail, and all three resolve stable z-engine tags.
 jobs:
   tests:
     name: Tests (release, NTS, PHP ${{ matrix.php }})

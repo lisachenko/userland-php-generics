@@ -109,19 +109,15 @@ needs a reason, not a refactor. Each is explained in full in the README.
 ## 1. Version matching is still non-negotiable
 
 Engine struct layouts are version-specific, and z-engine tracks **one PHP minor per release
-line** (`8.4.x` for PHP 8.4, `8.5.x` for PHP 8.5, `8.6.x-dev` for PHP 8.6). This package
+line** (`8.4.x` for PHP 8.4, `8.5.x` for PHP 8.5, `8.6.x` for PHP 8.6). This package
 supports **PHP 8.4, 8.5 and 8.6 in parallel** by declaring z-engine as
-`~8.4.2 || ~8.5.0 || ~8.6.0@dev`, so composer resolves the line matching the running platform —
+`~8.4.2 || ~8.5.0 || ~8.6.0`, so composer resolves the line matching the running platform —
 z-engine owns all version-dependent header complexity, and CI exercises the whole matrix. The
 rule is unchanged: never run the suite on a minor the resolved z-engine does not target, and
 never try to defeat `Core::init()`'s guard.
 
 PHP 8.6 is GA and **fully supported**: its CI legs are required, exactly like the 8.4 and 8.5
-ones — never mark them `continue-on-error`. z-engine has no stable 8.6 tag yet, so its 8.6 line
-is the `master` branch (`8.6.x-dev`); the `@dev` flag lets this repository's own installs reach
-it, and `"prefer-stable": true` keeps 8.4 and 8.5 on their stable tags rather than drifting onto
-`8.4.x-dev`/`8.5.x-dev` (and moves 8.6 onto the 8.6.0 tag by itself once it exists). When
-z-engine tags 8.6.0, drop the `@dev` flag.
+ones — never mark them `continue-on-error`. All three minors resolve stable z-engine tags.
 
 Running anything that touches the engine requires:
 
